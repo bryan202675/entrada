@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f4ef" />
+    <title>@ViewData["Title"] · ENTRADA</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="site-page">
+    <header class="site-header">
+        <nav class="nav-shell" aria-label="Navegación principal">
+            <a class="brand" asp-controller="Inicio" asp-action="Index" aria-label="ENTRADA, inicio">
+                <strong>ENTRADA</strong>
+                <small>UN ARCHIVO DE CULTURA EN MOVIMIENTO</small>
+            </a>
+            <button class="menu-button" type="button" aria-expanded="false" aria-controls="main-menu" data-menu-button>
+                <span></span><span></span><span class="sr-only">Abrir menú</span>
+            </button>
+            <div class="nav-menu" id="main-menu" data-menu>
+                <div class="nav-links">
+                    <a asp-controller="Eventos" asp-action="Index">Programación</a>
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <a asp-controller="Cuenta" asp-action="MisEntradas">Mis entradas</a>
+                        @if (User.IsInRole("Administrador"))
+                        {
+                            <a asp-controller="Admin" asp-action="Index">Dashboard</a>
+                        }
+                    }
+                </div>
+                <div class="nav-account">
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <details class="user-menu">
+                            <summary><span class="avatar">@User.Identity.Name?.Substring(0, 1).ToUpperInvariant()</span><span>@User.Identity.Name</span><span aria-hidden="true">⌄</span></summary>
+                            <div class="user-popover">
+                                <a asp-controller="Cuenta" asp-action="MisEntradas">Mis entradas</a>
+                                @if (User.IsInRole("Administrador"))
+                                {
+                                    <a asp-controller="Admin" asp-action="Acceso">Control de acceso</a>
+                                }
+                                <form asp-controller="Cuenta" asp-action="Salir" method="post"><button type="submit">Cerrar sesión</button></form>
+                            </div>
+                        </details>
+                    }
+                    else
+                    {
+                        <a class="nav-login" asp-controller="Cuenta" asp-action="Login">Iniciar sesión</a>
+                        <a class="button button-small" asp-controller="Cuenta" asp-action="Registro">Crear cuenta <span aria-hidden="true">↗</span></a>
+                    }
+                </div>
+            </div>
+        </nav>
+    </header>
+    @if (TempData["Mensaje"] is string mensaje)
+    {
+        <div class="toast toast-success" role="status" data-toast><span>✓</span>@mensaje</div>
+    }
+    @if (TempData["Error"] is string error)
+    {
+        <div class="toast toast-error" role="alert" data-toast><span>!</span>@error</div>
+    }
+    <main class="site-main">
+        @RenderBody()
+    </main>
+    <footer class="site-footer">
+        <div class="footer-inner container">
+            <a class="brand brand-footer" asp-controller="Inicio" asp-action="Index"><strong>ENTRADA</strong></a>
+            <p>Eventos culturales, reservas simples y acceso seguro.</p>
+            <nav aria-label="Navegación de pie de página"><a asp-controller="Eventos" asp-action="Index">Eventos</a>@if (User.Identity?.IsAuthenticated == true){<a asp-controller="Cuenta" asp-action="MisEntradas">Mis entradas</a>}</nav>
+            <span>© @DateTime.Now.Year</span>
+        </div>
+    </footer>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

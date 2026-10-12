@@ -1,0 +1,65 @@
+@model CatalogoViewModel
+@{
+    ViewData["Title"] = "Programación";
+}
+<section class="catalog-page container">
+    <header class="catalog-heading">
+        <div>
+            <span class="eyebrow">En cartelera</span>
+            <h1>Experiencias que dejan huella.</h1>
+            <p>Explora la programación, elige una fecha y reserva tu lugar.</p>
+        </div>
+        <span class="catalog-edition">ENTRADA <b>·</b> TEMPORADA CULTURAL</span>
+    </header>
+
+    @if (Model.Error is not null)
+    {
+        <div class="state-panel state-error" role="alert">
+            <span class="state-icon" aria-hidden="true">!</span>
+            <div><h2>No se pudo cargar la programación</h2><p>@Model.Error</p></div>
+            <a class="button button-secondary" asp-action="Index">Reintentar</a>
+        </div>
+    }
+    else if (Model.Eventos.Count == 0)
+    {
+        <div class="state-panel">
+            <span class="state-icon" aria-hidden="true">○</span>
+            <div><h2>Aún no hay eventos publicados</h2><p>Vuelve pronto para descubrir nuevas experiencias.</p></div>
+            <a class="button button-secondary" asp-controller="Inicio" asp-action="Index">Volver al inicio</a>
+        </div>
+    }
+    else
+    {
+        <div class="catalog-tools" id="programacion">
+            <label class="catalog-search" for="buscar">
+                <span aria-hidden="true">⌕</span>
+                <input id="buscar" type="search" placeholder="Buscar por evento, disciplina o lugar" autocomplete="off" data-event-search />
+            </label>
+            <p><strong data-search-count>@Model.Eventos.Count</strong> experiencias disponibles</p>
+        </div>
+        <div class="catalog-grid" data-event-list>
+            @foreach (var evento in Model.Eventos)
+            {
+                var fecha = DateTime.SpecifyKind(evento.Fecha, DateTimeKind.Utc).ToLocalTime();
+                <article class="catalog-card" data-event-card data-search="@($"{evento.Titulo} {evento.Descripcion} {evento.Ubicacion}")">
+                    <a class="catalog-image" asp-action="Reserva" asp-route-id="@evento.Id" aria-label="Ver entradas para @evento.Titulo">
+                        <img src="@(string.IsNullOrWhiteSpace(evento.Imagen) ? "/images/evento-fallback.jpg" : evento.Imagen)" data-image-fallback="/images/evento-fallback.jpg" alt="" width="640" height="420" loading="lazy" />
+                        <span>@fecha.ToString("dd MMM").ToUpperInvariant()</span>
+                    </a>
+                    <div class="catalog-card-body">
+                        <span class="eyebrow">@fecha.ToString("dddd · h:mm tt")</span>
+                        <h2>@evento.Titulo</h2>
+                        <p>@evento.Descripcion</p>
+                        <div class="catalog-card-meta"><span>⌖ @evento.Ubicacion</span><span>Desde @evento.PrecioDesde.ToString("C")</span></div>
+                        <a class="catalog-card-link" asp-action="Reserva" asp-route-id="@evento.Id">Ver entradas <span aria-hidden="true">↗</span></a>
+                    </div>
+                </article>
+            }
+        </div>
+        <div class="state-panel catalog-no-results" data-search-empty hidden role="status">
+            <span class="state-icon" aria-hidden="true">⌕</span>
+            <div><h2>Sin resultados</h2><p>Prueba con otro nombre, disciplina o lugar.</p></div>
+            <button class="button button-secondary" type="button" data-search-clear>Limpiar búsqueda</button>
+        </div>
+    }
+</section>

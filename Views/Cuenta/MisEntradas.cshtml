@@ -1,0 +1,49 @@
+@model IReadOnlyList<ReservaResumen>
+@{
+    ViewData["Title"] = "Mi cuenta";
+    var totalEntradas = Model.Sum(reserva => reserva.Boletos.Count);
+}
+<section class="account-page container">
+    <header class="account-hero">
+        <div class="account-hero-copy">
+            <span class="eyebrow">Tu espacio en ENTRADA</span>
+            <h1>La cultura se vive.<br /><em>Y se guarda.</em></h1>
+            <p>Tu archivo personal de experiencias y entradas, siempre a mano.</p>
+            <div class="account-actions">
+                <a class="button" asp-controller="Eventos" asp-action="Index">Explorar programación <span aria-hidden="true">↗</span></a>
+                <form asp-controller="Cuenta" asp-action="Salir" method="post"><button type="submit" class="account-signout">Cerrar sesión</button></form>
+            </div>
+        </div>
+        <div class="account-pass" aria-label="Resumen de entradas">
+            <span class="account-pass-kicker">ENTRADA <span>／</span> ARCHIVO PERSONAL</span>
+            <div><small>ENTRADAS EN TU ARCHIVO</small><strong>@totalEntradas.ToString("D2")</strong></div>
+            <span class="account-pass-footer">CULTURA EN MOVIMIENTO <b>↗</b></span>
+        </div>
+    </header>
+    <div class="account-section-heading"><div><span class="eyebrow">Tu colección</span><h2>Mis entradas</h2><p>Códigos vigentes e historial de reservas.</p></div><span>@Model.Count reserva@(Model.Count == 1 ? "" : "s")</span></div>
+    @if (Model.Count == 0)
+    {
+        <div class="state-panel account-empty"><span class="state-icon" aria-hidden="true">＋</span><div><h2>Tu archivo aún está por comenzar</h2><p>Elige una experiencia en la programación. Cuando reserves, tus códigos aparecerán aquí.</p></div></div>
+    }
+    else
+    {
+        <div class="wallet-list">
+            @foreach (var reserva in Model)
+            {
+                var fecha = DateTime.SpecifyKind(reserva.FechaEvento, DateTimeKind.Utc).ToLocalTime();
+                <article class="wallet-card">
+                    <div class="wallet-date"><strong>@fecha.ToString("dd")</strong><span>@fecha.ToString("MMM").ToUpperInvariant()</span><small>@fecha.ToString("yyyy")</small></div>
+                    <div class="wallet-content">
+                        <div class="wallet-head"><div><span>@reserva.Identificador</span><h2>@reserva.Evento</h2><p>@fecha.ToString("dddd · h:mm tt") · @reserva.Ubicacion</p></div><a asp-controller="Eventos" asp-action="Confirmacion" asp-route-id="@reserva.Id">Abrir reserva <span aria-hidden="true">→</span></a></div>
+                        <div class="wallet-codes">
+                            @foreach (var boleto in reserva.Boletos)
+                            {
+                                <div class="code-pill"><span>@boleto.Tipo</span><strong>@boleto.CodigoUnico</strong><em class="status status-@boleto.Estado.ToLowerInvariant()">@boleto.Estado</em></div>
+                            }
+                        </div>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</section>

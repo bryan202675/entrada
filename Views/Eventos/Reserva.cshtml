@@ -1,0 +1,72 @@
+@model ReservaViewModel
+@{
+    ViewData["Title"] = $"Reservar · {Model.Evento.Titulo}";
+    var fecha = DateTime.SpecifyKind(Model.Evento.Fecha, DateTimeKind.Utc).ToLocalTime();
+}
+<section class="booking-page container">
+    <nav class="breadcrumb" aria-label="Migas de pan"><a asp-controller="Eventos" asp-action="Index">Eventos</a><span>/</span><span>@Model.Evento.Titulo</span></nav>
+    <div class="booking-layout">
+        <article class="booking-event">
+            <div class="booking-photo">
+                <img src="@(string.IsNullOrWhiteSpace(Model.Evento.Imagen) ? "/images/evento-fallback.jpg" : Model.Evento.Imagen)" data-image-fallback="/images/evento-fallback.jpg" alt="@Model.Evento.Titulo" width="1600" height="1024" />
+                <span class="photo-label">@Model.Evento.StockDisponible lugares disponibles</span>
+            </div>
+            <div class="booking-event-copy">
+                <span class="eyebrow">Reserva de entradas</span>
+                <h1>@Model.Evento.Titulo</h1>
+                <p>@Model.Evento.Descripcion</p>
+                <dl class="event-facts">
+                    <div><dt><span aria-hidden="true">◷</span> Fecha</dt><dd>@fecha.ToString("dddd, dd 'de' MMMM")<small>@fecha.ToString("h:mm tt")</small></dd></div>
+                    <div><dt><span aria-hidden="true">⌖</span> Ubicación</dt><dd>@Model.Evento.Ubicacion</dd></div>
+                    <div><dt><span aria-hidden="true">◉</span> Aforo</dt><dd>@Model.Evento.StockDisponible disponibles<small>de @Model.Evento.CapacidadTotal lugares</small></dd></div>
+                </dl>
+            </div>
+        </article>
+        <aside class="booking-panel">
+            <form asp-action="ConfirmarReserva" method="post" data-booking-form>
+                <input asp-for="Formulario.EventoId" name="EventoId" type="hidden" />
+                <div class="panel-heading"><span>Selección</span><h2>Elige tu entrada</h2><p>Selecciona una categoría y la cantidad.</p></div>
+                <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
+                <div class="ticket-options" role="radiogroup" aria-label="Tipo de entrada">
+                    @foreach (var tipo in Model.Evento.Tipos)
+                    {
+                        <label class="ticket-option @(tipo.StockDisponible == 0 ? "is-disabled" : null)">
+                            <input type="radio" name="TipoEntradaId" value="@tipo.Id" data-price="@tipo.Precio.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-stock="@tipo.StockDisponible" data-name="@tipo.Nombre" checked="@(tipo.Id == Model.Formulario.TipoEntradaId)" disabled="@(tipo.StockDisponible == 0)" />
+                            <span class="radio-ui"></span>
+                            <span class="ticket-option-copy"><strong>@tipo.Nombre</strong><small>@tipo.StockDisponible disponibles</small></span>
+                            <b>@tipo.Precio.ToString("C")</b>
+                        </label>
+                    }
+                </div>
+                <div class="quantity-row">
+                    <div><strong>Cantidad</strong><small>Máximo @Model.MaximoPorReserva por reserva</small></div>
+                    <div class="stepper">
+                        <button type="button" aria-label="Reducir cantidad" data-step="-1">−</button>
+                        <input name="Cantidad" value="@Model.Formulario.Cantidad" min="1" max="@Model.MaximoPorReserva" inputmode="numeric" aria-label="Cantidad de entradas" data-quantity />
+                        <button type="button" aria-label="Aumentar cantidad" data-step="1">+</button>
+                    </div>
+                </div>
+                <div class="checkout-summary">
+                    <div><span>Tipo</span><strong data-selected-type>—</strong></div>
+                    <div><span>Entradas</span><strong data-selected-quantity>1</strong></div>
+                    <div><span>Subtotal</span><strong data-subtotal>@Model.Evento.PrecioDesde.ToString("C")</strong></div>
+                    <div class="checkout-total"><span>Total</span><strong data-total>@Model.Evento.PrecioDesde.ToString("C")</strong></div>
+                </div>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <button class="button button-block" type="submit" data-loading-button><span>Confirmar reserva</span></button>
+                    <p class="secure-note"><span aria-hidden="true">✓</span> El cupo se valida nuevamente antes de emitir</p>
+                }
+                else
+                {
+                    <a class="button button-block" asp-controller="Cuenta" asp-action="Login" asp-route-returnUrl="@Context.Request.Path">Inicia sesión para reservar</a>
+                    <p class="secure-note">Tu selección se confirmará al iniciar sesión.</p>
+                }
+            </form>
+        </aside>
+    </div>
+</section>
+
+@section Scripts {
+    <script src="~/js/reserva.js" asp-append-version="true"></script>
+}

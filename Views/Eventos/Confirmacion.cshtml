@@ -1,0 +1,34 @@
+@model ReservaResumen
+@{
+    ViewData["Title"] = "Reserva confirmada";
+    var fecha = DateTime.SpecifyKind(Model.FechaEvento, DateTimeKind.Utc).ToLocalTime();
+}
+<section class="confirmation-page container">
+    <div class="confirmation-header reveal">
+        <span class="success-mark" aria-hidden="true">✓</span>
+        <div><span class="eyebrow">Reserva confirmada</span><h1>Tu entrada está lista.</h1><p>Presenta el código correspondiente al llegar al evento.</p></div>
+    </div>
+    <div class="confirmation-layout">
+        <article class="digital-ticket reveal">
+            <div class="ticket-rail"><span class="ticket-seal" aria-hidden="true">E</span><strong>ENTRADA</strong><span>@Model.Identificador</span></div>
+            <div class="ticket-content">
+                <div class="ticket-kicker"><span>@Model.Estado</span><span>@fecha.ToString("dd MMM yyyy").ToUpperInvariant()</span></div>
+                <h2>@Model.Evento</h2>
+                <p>@fecha.ToString("dddd · h:mm tt") · @Model.Ubicacion</p>
+                <div class="ticket-codes">
+                    @foreach (var boleto in Model.Boletos)
+                    {
+                        <div><span>@boleto.Tipo</span><strong>@boleto.CodigoUnico</strong><em class="status status-@boleto.Estado.ToLowerInvariant()">@boleto.Estado</em></div>
+                    }
+                </div>
+            </div>
+            <div class="ticket-total"><span>@Model.Cantidad @(Model.Cantidad == 1 ? "entrada" : "entradas")</span><strong>@Model.Total.ToString("C")</strong><small>Total simulado</small></div>
+        </article>
+        <aside class="summary-card">
+            <span class="eyebrow">Detalle de reserva</span>
+            <dl><div><dt>Identificador</dt><dd>@Model.Identificador</dd></div><div><dt>Categoría</dt><dd>@Model.Tipo</dd></div><div><dt>Fecha de reserva</dt><dd>@DateTime.SpecifyKind(Model.FechaReserva, DateTimeKind.Utc).ToLocalTime().ToString("dd MMM · h:mm tt")</dd></div><div><dt>Estado</dt><dd><span class="status">@Model.Estado</span></dd></div></dl>
+            <a class="button button-block" asp-controller="Cuenta" asp-action="MisEntradas">Ir a mis entradas</a>
+            <a class="button-link centered" asp-controller="Inicio" asp-action="Index">Seguir explorando</a>
+        </aside>
+    </div>
+</section>

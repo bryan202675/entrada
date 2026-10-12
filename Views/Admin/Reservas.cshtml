@@ -1,0 +1,15 @@
+@model IReadOnlyList<ReservaAdmin>
+@{
+    ViewData["Title"] = "Reservas";
+}
+<section class="admin-page container">
+    <div class="admin-heading"><div><a class="breadcrumb-link" asp-action="Index">← Panel operativo</a><span class="eyebrow">Operaciones</span><h1>Reservas</h1><p>Registro actualizado de las operaciones confirmadas.</p></div><span class="record-count">@Model.Count registros</span></div>
+    @if (Model.Count == 0)
+    {
+        <div class="state-panel"><span class="state-icon">＋</span><div><h2>Aún no hay reservas</h2><p>Las nuevas operaciones aparecerán aquí.</p></div></div>
+    }
+    else
+    {
+        <div class="data-table-wrap panel-surface"><table class="data-table"><thead><tr><th>Reserva</th><th>Asistente</th><th>Evento</th><th>Fecha</th><th>Entradas</th><th>Total</th><th>Estado</th></tr></thead><tbody>@foreach (var reserva in Model){var fecha = DateTime.SpecifyKind(reserva.FechaReserva, DateTimeKind.Utc).ToLocalTime();<tr><td><strong>@reserva.Identificador</strong></td><td>@reserva.Usuario<small>@reserva.Email</small></td><td>@reserva.Evento</td><td>@fecha.ToString("dd MMM yyyy")<small>@fecha.ToString("h:mm tt")</small></td><td>@reserva.Cantidad</td><td>@reserva.Total.ToString("C")</td><td><span class="status status-@reserva.Estado.ToLowerInvariant()">@reserva.Estado</span></td></tr>}</tbody></table></div>
+    }
+</section>

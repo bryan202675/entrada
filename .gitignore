@@ -1,0 +1,12 @@
+bin/
+obj/
+.vs/
+.idea/
+.DS_Store
+*.user
+appsettings.Local.json
+.env
+.env.*
+*.pfx
+*.p12
+secrets.json

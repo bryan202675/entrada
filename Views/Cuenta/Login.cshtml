@@ -1,0 +1,18 @@
+@model LoginInput
+@{
+    ViewData["Title"] = "Iniciar sesión";
+}
+<section class="auth-page container">
+    <div class="auth-shell">
+        <form method="post" class="form-card">
+            <input asp-for="ReturnUrl" type="hidden" />
+            <div class="form-heading"><span class="eyebrow">Bienvenido de nuevo</span><h1>Inicia sesión</h1><p>Consulta tus reservas y boletos digitales.</p></div>
+            <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+            <label class="field"><span>Correo electrónico</span><input asp-for="Email" autocomplete="email" placeholder="nombre@correo.com" /><span asp-validation-for="Email"></span></label>
+            <label class="field"><span>Contraseña</span><input asp-for="Password" autocomplete="current-password" placeholder="Tu contraseña" /><span asp-validation-for="Password"></span></label>
+            <button class="button button-block" type="submit" data-loading-button><span>Iniciar sesión</span></button>
+            <p class="form-alternative">¿Aún no tienes cuenta? <a asp-action="Registro">Crear cuenta</a></p>
+        </form>
+        <p class="auth-note"><span>✓</span> Tus entradas están protegidas y vinculadas a tu cuenta.</p>
+    </div>
+</section>

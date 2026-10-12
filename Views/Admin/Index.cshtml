@@ -1,0 +1,56 @@
+@model AdminDashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+<section class="admin-page container">
+    <div class="admin-heading">
+        <div><span class="eyebrow">Administración</span><h1>Panel operativo</h1><p>Resumen de la cartelera, reservas y aforo.</p></div>
+        <div class="admin-actions"><a class="button button-secondary" asp-action="Reservas">Ver reservas</a><a class="button" asp-action="Acceso">Validar entrada</a></div>
+    </div>
+    <div class="metric-grid">
+        <article><span>Eventos creados</span><strong>@Model.Resumen.Eventos</strong><small>en el sistema</small></article>
+        <article><span>Reservas</span><strong>@Model.Resumen.Reservas</strong><small>confirmadas</small></article>
+        <article><span>Boletos emitidos</span><strong>@Model.Resumen.Boletos</strong><small>@Model.Resumen.Utilizados utilizados</small></article>
+        <article><span>Cupos disponibles</span><strong>@Model.Resumen.Disponibles</strong><small>de @Model.Resumen.CapacidadTotal totales</small></article>
+    </div>
+    <div class="admin-layout">
+        <section class="admin-events panel-surface">
+            <div class="subheading"><div><h2>Eventos</h2><p>Disponibilidad y acciones de cartelera.</p></div><span>@Model.Resumen.EventosActivos.Count registros</span></div>
+            @if (Model.Resumen.EventosActivos.Count == 0)
+            {
+                <div class="inline-empty">Aún no hay eventos creados.</div>
+            }
+            else
+            {
+                <div class="admin-event-list">
+                    @foreach (var evento in Model.Resumen.EventosActivos)
+                    {
+                        var fecha = DateTime.SpecifyKind(evento.Fecha, DateTimeKind.Utc).ToLocalTime();
+                        var emitidos = evento.CapacidadTotal - evento.StockDisponible;
+                        var porcentaje = evento.CapacidadTotal == 0 ? 0 : emitidos * 100 / evento.CapacidadTotal;
+                        <article class="admin-event-row @(evento.Estado != "Activo" ? "is-muted" : null)">
+                            <img src="@(string.IsNullOrWhiteSpace(evento.Imagen) ? "/images/evento-fallback.jpg" : evento.Imagen)" data-image-fallback="/images/evento-fallback.jpg" alt="" width="96" height="72" />
+                            <div class="admin-event-info"><span>@fecha.ToString("dd MMM · h:mm tt")</span><h3>@evento.Titulo</h3><p>@evento.Ubicacion</p></div>
+                            <div class="capacity-cell"><div><span>Ocupación</span><strong>@porcentaje%</strong></div><div class="capacity-bar"><i style="width:@porcentaje%"></i></div><small>@emitidos emitidos · @evento.StockDisponible libres</small></div>
+                            <div class="row-actions"><span class="status status-@evento.Estado.ToLowerInvariant()">@evento.Estado</span><a asp-action="Index" asp-route-editar="@evento.Id" asp-fragment="editor">Editar</a>@if (evento.Estado == "Activo"){<form asp-action="CancelarEvento" asp-route-id="@evento.Id" method="post"><button type="submit" data-confirm="¿Cancelar este evento? Las entradas dejarán de ser válidas.">Cancelar</button></form>}</div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+        <aside class="event-editor panel-surface" id="editor">
+            <form asp-action="GuardarEvento" method="post">
+                <input asp-for="Formulario.Id" name="Id" type="hidden" />
+                <div class="panel-heading"><span>@(Model.Editando ? "Editando evento" : "Nuevo evento")</span><h2>@(Model.Editando ? "Actualizar función" : "Publicar función")</h2><p>Información visible para los asistentes.</p></div>
+                <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
+                <label class="field"><span>Título</span><input asp-for="Formulario.Titulo" name="Titulo" placeholder="Nombre del evento" /></label>
+                <label class="field"><span>Descripción</span><textarea asp-for="Formulario.Descripcion" name="Descripcion" rows="3" placeholder="Qué vivirá el público"></textarea></label>
+                <div class="field-pair"><label class="field"><span>Fecha y hora</span><input asp-for="Formulario.Fecha" name="Fecha" type="datetime-local" value="@Model.Formulario.Fecha.ToString("yyyy-MM-ddTHH:mm")" /></label><label class="field"><span>Ubicación</span><input asp-for="Formulario.Ubicacion" name="Ubicacion" placeholder="Sala o recinto" /></label></div>
+                <label class="field"><span>Imagen</span><select asp-for="Formulario.Imagen" name="Imagen"><option value="/images/evento-arte.jpg">Arte contemporáneo</option><option value="/images/evento-teatro.jpg">Teatro</option><option value="/images/evento-musica.jpg">Música en vivo</option><option value="/images/evento-fallback.jpg">Auditorio</option></select></label>
+                <fieldset class="category-editor"><legend>Precios y cupos</legend><div class="category-head"><span>Categoría</span><span>Precio</span><span>Cupo</span></div><div><strong>General</strong><input asp-for="Formulario.PrecioGeneral" name="PrecioGeneral" type="number" min="0" step="0.01" aria-label="Precio General" /><input asp-for="Formulario.CapacidadGeneral" name="CapacidadGeneral" type="number" min="1" aria-label="Cupo General" /></div><div><strong>VIP</strong><input asp-for="Formulario.PrecioVip" name="PrecioVip" type="number" min="0" step="0.01" aria-label="Precio VIP" /><input asp-for="Formulario.CapacidadVip" name="CapacidadVip" type="number" min="1" aria-label="Cupo VIP" /></div><div><strong>Estudiante</strong><input asp-for="Formulario.PrecioEstudiante" name="PrecioEstudiante" type="number" min="0" step="0.01" aria-label="Precio Estudiante" /><input asp-for="Formulario.CapacidadEstudiante" name="CapacidadEstudiante" type="number" min="1" aria-label="Cupo Estudiante" /></div></fieldset>
+                <button class="button button-block" type="submit" data-loading-button><span>@(Model.Editando ? "Guardar cambios" : "Crear evento")</span></button>
+                @if (Model.Editando){<a class="button-link centered" asp-action="Index">Cancelar edición</a>}
+            </form>
+        </aside>
+    </div>
+</section>
