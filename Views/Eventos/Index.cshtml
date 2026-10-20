@@ -1,13 +1,47 @@
 @model CatalogoViewModel
 @{
     ViewData["Title"] = "Programación";
+    var culturaSv = new System.Globalization.CultureInfo("es-SV");
+
+    var eventosData = Model.Eventos.Select(e =>
+    {
+        var fechaLocal = DateTime.SpecifyKind(e.Fecha, DateTimeKind.Utc).ToLocalTime();
+        return new
+        {
+            id = e.Id,
+            titulo = e.Titulo,
+            descripcion = e.Descripcion,
+            fechaIso = e.Fecha.ToString("o"),
+            fechaLocalIso = fechaLocal.ToString("yyyy-MM-ddTHH:mm:ss"),
+            dia = fechaLocal.Day,
+            mes = fechaLocal.Month,
+            anio = fechaLocal.Year,
+            fechaTexto = fechaLocal.ToString("dddd, d 'de' MMMM · h:mm tt", culturaSv),
+            fechaCorta = fechaLocal.ToString("dd MMM", culturaSv).ToUpperInvariant(),
+            horaTexto = fechaLocal.ToString("h:mm tt", culturaSv),
+            ubicacion = e.Ubicacion,
+            imagen = string.IsNullOrWhiteSpace(e.Imagen) ? "/images/evento-fallback.jpg" : e.Imagen,
+            stockDisponible = e.StockDisponible,
+            capacidadTotal = e.CapacidadTotal,
+            precioDesde = e.PrecioDesde.ToString("C", culturaSv),
+            reservaUrl = Url.Action("Reserva", "Eventos", new { id = e.Id }),
+            tipos = e.Tipos.Select(t => new
+            {
+                id = t.Id,
+                nombre = t.Nombre,
+                precio = t.Precio.ToString("C", culturaSv),
+                stock = t.StockDisponible,
+                capacidad = t.CapacidadTotal
+            })
+        };
+    });
+    var jsonEventos = System.Text.Json.JsonSerializer.Serialize(eventosData);
 }
 <section class="catalog-page container">
     <header class="catalog-heading">
         <div>
-            <span class="eyebrow">En cartelera</span>
-            <h1>Experiencias que dejan huella.</h1>
-            <p>Explora la programación, elige una fecha y reserva tu lugar.</p>
+            <h1>Calendario y Cartelera de Eventos</h1>
+            <p>Explora las fechas programadas, consulta aforos en tiempo real y reserva tus entradas.</p>
         </div>
         <span class="catalog-edition">ENTRADA <b>·</b> TEMPORADA CULTURAL</span>
     </header>
@@ -30,36 +64,717 @@
     }
     else
     {
+        <!-- Barra de herramientas: Selector de vista (Calendario / Cartelera) y Búsqueda rápida -->
         <div class="catalog-tools" id="programacion">
-            <label class="catalog-search" for="buscar">
-                <span aria-hidden="true">⌕</span>
-                <input id="buscar" type="search" placeholder="Buscar por evento, disciplina o lugar" autocomplete="off" data-event-search />
-            </label>
-            <p><strong data-search-count>@Model.Eventos.Count</strong> experiencias disponibles</p>
+            <div class="catalog-view-switch" role="tablist" aria-label="Cambiar vista">
+                <button type="button" class="view-switch-btn is-active" id="btn-view-calendar" role="tab" aria-selected="true" aria-controls="calendar-section">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span>Vista Calendario</span>
+                </button>
+                <button type="button" class="view-switch-btn" id="btn-view-grid" role="tab" aria-selected="false" aria-controls="grid-section">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+                    <span>Vista Cartelera</span>
+                </button>
+            </div>
+
+            <div class="catalog-tools-right">
+                <label class="catalog-search" for="buscar">
+                    <span aria-hidden="true">⌕</span>
+                    <input id="buscar" type="search" placeholder="Buscar por evento, disciplina o lugar" autocomplete="off" data-event-search />
+                </label>
+                <p><strong data-search-count>@Model.Eventos.Count</strong> experiencias disponibles</p>
+            </div>
         </div>
-        <div class="catalog-grid" data-event-list>
-            @foreach (var evento in Model.Eventos)
-            {
-                var fecha = DateTime.SpecifyKind(evento.Fecha, DateTimeKind.Utc).ToLocalTime();
-                <article class="catalog-card" data-event-card data-search="@($"{evento.Titulo} {evento.Descripcion} {evento.Ubicacion}")">
-                    <a class="catalog-image" asp-action="Reserva" asp-route-id="@evento.Id" aria-label="Ver entradas para @evento.Titulo">
-                        <img src="@(string.IsNullOrWhiteSpace(evento.Imagen) ? "/images/evento-fallback.jpg" : evento.Imagen)" data-image-fallback="/images/evento-fallback.jpg" alt="" width="640" height="420" loading="lazy" />
-                        <span>@fecha.ToString("dd MMM").ToUpperInvariant()</span>
-                    </a>
-                    <div class="catalog-card-body">
-                        <span class="eyebrow">@fecha.ToString("dddd · h:mm tt")</span>
-                        <h2>@evento.Titulo</h2>
-                        <p>@evento.Descripcion</p>
-                        <div class="catalog-card-meta"><span>⌖ @evento.Ubicacion</span><span>Desde @evento.PrecioDesde.ToString("C")</span></div>
-                        <a class="catalog-card-link" asp-action="Reserva" asp-route-id="@evento.Id">Ver entradas <span aria-hidden="true">↗</span></a>
+
+        <!-- 1. VISTA CALENDARIO DINÁMICO -->
+        <div id="calendar-section" class="calendar-view-wrap" role="tabpanel" aria-labelledby="btn-view-calendar">
+            <div class="calendar-shell">
+                <div class="calendar-nav-bar">
+                    <div class="cal-title-group">
+                        <h2 class="cal-month-title" id="cal-month-display">Noviembre 2026</h2>
+                        <span class="cal-badge-count" id="cal-month-count">Cargando eventos...</span>
                     </div>
-                </article>
-            }
+                    <div class="cal-nav-actions">
+                        <button type="button" class="cal-nav-btn" id="cal-prev" aria-label="Mes anterior">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg>
+                        </button>
+                        <button type="button" class="cal-today-btn" id="cal-today">Hoy</button>
+                        <button type="button" class="cal-nav-btn" id="cal-next" aria-label="Mes siguiente">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="calendar-weekdays" aria-hidden="true">
+                    <span>LUN</span>
+                    <span>MAR</span>
+                    <span>MIÉ</span>
+                    <span>JUE</span>
+                    <span>VIE</span>
+                    <span>SÁB</span>
+                    <span>DOM</span>
+                </div>
+
+                <div class="calendar-days-grid" id="calendar-days-grid" role="grid">
+                    <!-- Generado dinámicamente con JavaScript -->
+                </div>
+            </div>
+
+            <!-- Resumen de fechas del mes -->
+            <div class="cal-upcoming-card">
+                <div class="cal-upcoming-head">
+                    <div>
+                        <h3 id="upcoming-headline">Eventos del mes seleccionado</h3>
+                    </div>
+                    <span class="cal-help-hint">Haz clic en cualquier boleto para ver información y reservar</span>
+                </div>
+                <div class="cal-upcoming-list" id="cal-upcoming-list">
+                    <!-- Se llena con JS según el mes visible -->
+                </div>
+            </div>
         </div>
-        <div class="state-panel catalog-no-results" data-search-empty hidden role="status">
-            <span class="state-icon" aria-hidden="true">⌕</span>
-            <div><h2>Sin resultados</h2><p>Prueba con otro nombre, disciplina o lugar.</p></div>
-            <button class="button button-secondary" type="button" data-search-clear>Limpiar búsqueda</button>
+
+        <!-- 2. VISTA CARTELERA (Cuadrícula de tickets) -->
+        <div id="grid-section" class="grid-view-wrap" role="tabpanel" aria-labelledby="btn-view-grid" hidden>
+            <div class="catalog-grid" data-event-list>
+                @foreach (var evento in Model.Eventos)
+                {
+                    var fecha = DateTime.SpecifyKind(evento.Fecha, DateTimeKind.Utc).ToLocalTime();
+                    <article class="catalog-card" data-event-card data-search="@($"{evento.Titulo} {evento.Descripcion} {evento.Ubicacion}")" data-event-id="@evento.Id">
+                        <div class="catalog-ticket-cover">
+                            <a class="catalog-image" href="javascript:void(0)" data-open-modal="@evento.Id" aria-label="Ver detalles de @evento.Titulo">
+                                <img src="@(string.IsNullOrWhiteSpace(evento.Imagen) ? "/images/evento-fallback.jpg" : evento.Imagen)" data-image-fallback="/images/evento-fallback.jpg" alt="" width="640" height="420" loading="lazy" />
+                                <span>@fecha.ToString("dd MMM", culturaSv).ToUpperInvariant()</span>
+                            </a>
+                            <div class="ticket-cut-divider" aria-hidden="true">
+                                <span class="cut-notch notch-left"></span>
+                                <span class="cut-line"></span>
+                                <span class="cut-notch notch-right"></span>
+                            </div>
+                        </div>
+                        <div class="catalog-card-body">
+                            <div class="catalog-card-kicker-row">
+                                <span class="catalog-card-edition">PASE OFICIAL</span>
+                                <span class="catalog-card-price">Desde @evento.PrecioDesde.ToString("C", culturaSv)</span>
+                            </div>
+                            <h2 class="catalog-card-title">@evento.Titulo</h2>
+                            <p class="catalog-card-desc">@evento.Descripcion</p>
+                            <div class="catalog-card-meta">
+                                <span>
+                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    @fecha.ToString("dddd · h:mm tt", culturaSv)
+                                </span>
+                                <span>
+                                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+                                    @evento.Ubicacion
+                                </span>
+                            </div>
+
+                            <div class="catalog-barcode-wrap" title="Código digital de acceso">
+                                <svg class="pass-barcode" viewBox="0 0 160 32" preserveAspectRatio="none" aria-hidden="true">
+                                    <rect x="0" y="0" width="2.5" height="32" fill="#0f0f0e"/>
+                                    <rect x="4.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="7.5" y="0" width="3.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="13" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+                                    <rect x="16" y="0" width="4" height="32" fill="#0f0f0e"/>
+                                    <rect x="22" y="0" width="2" height="32" fill="#0f0f0e"/>
+                                    <rect x="26" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="29" y="0" width="3" height="32" fill="#0f0f0e"/>
+                                    <rect x="34" y="0" width="2" height="32" fill="#0f0f0e"/>
+                                    <rect x="38" y="0" width="4.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="44.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="48" y="0" width="2.5" height="32" fill="#0f0f0e"/>
+                                    <rect x="52.5" y="0" width="3" height="32" fill="#0f0f0e"/>
+                                    <rect x="57.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="61" y="0" width="2.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="65" y="0" width="4" height="32" fill="#0f0f0e"/>
+                                    <rect x="71" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+                                    <rect x="74.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="78" y="0" width="3.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="83.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="87" y="0" width="2.5" height="32" fill="#0f0f0e"/>
+                                    <rect x="91.5" y="0" width="3.5" height="32" fill="#0f0f0e"/>
+                                    <rect x="97" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+                                    <rect x="100.5" y="0" width="2.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="105" y="0" width="4" height="32" fill="#0f0f0e"/>
+                                    <rect x="111" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="114" y="0" width="3" height="32" fill="#0f0f0e"/>
+                                    <rect x="119" y="0" width="2" height="32" fill="#0f0f0e"/>
+                                    <rect x="123" y="0" width="3.8" height="32" fill="#0f0f0e"/>
+                                    <rect x="128.5" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+                                    <rect x="132" y="0" width="3" height="32" fill="#0f0f0e"/>
+                                    <rect x="137" y="0" width="2.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="141" y="0" width="4" height="32" fill="#0f0f0e"/>
+                                    <rect x="147" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                    <rect x="150" y="0" width="2.8" height="32" fill="#0f0f0e"/>
+                                    <rect x="155" y="0" width="4.5" height="32" fill="#0f0f0e"/>
+                                </svg>
+                                <span class="pass-barcode-text">* EVT-00@evento.Id-BOLETO *</span>
+                            </div>
+
+                            <div class="catalog-card-actions">
+                                <button type="button" class="catalog-preview-btn" data-open-modal="@evento.Id">Ver detalles</button>
+                                @if (User.IsInRole("Administrador"))
+                                {
+                                    <div class="admin-card-actions">
+                                        <a class="button button-small button-secondary" asp-controller="Admin" asp-action="Index" asp-route-editar="@evento.Id" asp-fragment="editor">Editar</a>
+                                        <form asp-controller="Admin" asp-action="CancelarEvento" asp-route-id="@evento.Id" method="post" style="display:inline;" onsubmit="return confirm('¿Seguro que deseas cancelar/eliminar este evento?');">
+                                            <button type="submit" class="button button-small button-danger">Eliminar</button>
+                                        </form>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <a class="catalog-card-cta" asp-action="Reserva" asp-route-id="@evento.Id">
+                                        <span>Reservar</span>
+                                        <span class="cta-arrow" aria-hidden="true">↗</span>
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    </article>
+                }
+            </div>
+            <div class="state-panel catalog-no-results" data-search-empty hidden role="status">
+                <span class="state-icon" aria-hidden="true">⌕</span>
+                <div><h2>Sin resultados</h2><p>Prueba con otro nombre, disciplina o lugar.</p></div>
+                <button class="button button-secondary" type="button" data-search-clear>Limpiar búsqueda</button>
+            </div>
         </div>
+
+        <!-- 3. MODAL DINÁMICO DE INFORMACIÓN DE EVENTO -->
+        <div id="event-modal-backdrop" class="modal-backdrop" hidden aria-hidden="true">
+            <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modal-event-title" tabindex="-1">
+                <button type="button" class="modal-close" id="modal-close-btn" aria-label="Cerrar ventana">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+                <div class="modal-cover">
+                    <img id="modal-img" src="/images/evento-fallback.jpg" alt="" />
+                    <span class="modal-date-badge" id="modal-date-badge">14 NOV</span>
+                </div>
+                <div class="modal-content-body">
+                    <div class="modal-header-info">
+                        <span class="eyebrow" id="modal-eyebrow">SÁBADO · 8:58 P. M.</span>
+                        <h2 id="modal-event-title">Título del Evento</h2>
+                        <div class="modal-location">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <span id="modal-location">Ubicación</span>
+                        </div>
+                    </div>
+
+                    <p class="modal-description" id="modal-description">Descripción detallada del evento.</p>
+
+                    <!-- Aforo y Concurrencia en tiempo real -->
+                    <div class="modal-aforo-card">
+                        <div class="modal-aforo-header">
+                            <div>
+                                <small>CONTROL DE AFORO EN TIEMPO REAL</small>
+                                <strong>Disponibilidad de localidades</strong>
+                            </div>
+                            <span class="modal-aforo-stock" id="modal-stock-label">120 disponibles</span>
+                        </div>
+                        <div class="modal-aforo-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="modal-progress-bar">
+                            <div class="modal-progress-fill" id="modal-progress-fill" style="width: 80%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Tipos de entrada y precios -->
+                    <div class="modal-tickets-block">
+                        <h3>Tipos de Entrada Disponibles</h3>
+                        <div class="modal-tickets-grid" id="modal-tickets-list">
+                            <!-- Se renderizan los tipos de entrada -->
+                        </div>
+                    </div>
+
+                    <!-- Pase digital y código de barras -->
+                    <div class="modal-barcode-box" style="margin-bottom: 20px; padding: 12px 18px; background: #faf9f6; border: 1px dashed var(--line); border-radius: 14px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                        <div>
+                            <small style="display:block; font:800 8.5px var(--mono); color:var(--muted); letter-spacing:.08em;">CONTROL DE ACCESO DIGITAL</small>
+                            <span id="modal-barcode-code" style="font:700 11px var(--mono); color:var(--ink); letter-spacing:.08em;">* EVT-000-ACCESO *</span>
+                        </div>
+                        <div style="flex: 0 0 140px;">
+                            <svg class="pass-barcode" viewBox="0 0 160 32" preserveAspectRatio="none" style="width:100%; height:26px;" aria-hidden="true">
+                                <rect x="0" y="0" width="2.5" height="32" fill="#0f0f0e"/>
+                                <rect x="4.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                <rect x="7.5" y="0" width="3.2" height="32" fill="#0f0f0e"/>
+                                <rect x="13" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+                                <rect x="16" y="0" width="4" height="32" fill="#0f0f0e"/>
+                                <rect x="22" y="0" width="2" height="32" fill="#0f0f0e"/>
+                                <rect x="26" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                <rect x="29" y="0" width="3" height="32" fill="#0f0f0e"/>
+                                <rect x="34" y="0" width="2" height="32" fill="#0f0f0e"/>
+                                <rect x="38" y="0" width="4.2" height="32" fill="#0f0f0e"/>
+                                <rect x="44.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                <rect x="48" y="0" width="2.5" height="32" fill="#0f0f0e"/>
+                                <rect x="52.5" y="0" width="3" height="32" fill="#0f0f0e"/>
+                                <rect x="57.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                <rect x="61" y="0" width="2.2" height="32" fill="#0f0f0e"/>
+                                <rect x="65" y="0" width="4" height="32" fill="#0f0f0e"/>
+                                <rect x="71" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+                                <rect x="74.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                <rect x="78" y="0" width="3.2" height="32" fill="#0f0f0e"/>
+                                <rect x="83.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                <rect x="87" y="0" width="2.5" height="32" fill="#0f0f0e"/>
+                                <rect x="91.5" y="0" width="3.5" height="32" fill="#0f0f0e"/>
+                                <rect x="97" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+                                <rect x="100.5" y="0" width="2.2" height="32" fill="#0f0f0e"/>
+                                <rect x="105" y="0" width="4" height="32" fill="#0f0f0e"/>
+                                <rect x="111" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                <rect x="114" y="0" width="3" height="32" fill="#0f0f0e"/>
+                                <rect x="119" y="0" width="2" height="32" fill="#0f0f0e"/>
+                                <rect x="123" y="0" width="3.8" height="32" fill="#0f0f0e"/>
+                                <rect x="128.5" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+                                <rect x="132" y="0" width="3" height="32" fill="#0f0f0e"/>
+                                <rect x="137" y="0" width="2.2" height="32" fill="#0f0f0e"/>
+                                <rect x="141" y="0" width="4" height="32" fill="#0f0f0e"/>
+                                <rect x="147" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                <rect x="150" y="0" width="2.8" height="32" fill="#0f0f0e"/>
+                                <rect x="155" y="0" width="4.5" height="32" fill="#0f0f0e"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer-actions">
+                        <button type="button" class="button button-secondary" id="modal-cancel-btn">Cerrar</button>
+                        @if (User.IsInRole("Administrador"))
+                        {
+                            <a id="modal-admin-edit-btn" class="button button-secondary" href="#">Editar función</a>
+                            <form id="modal-admin-delete-form" method="post" action="" style="display:inline;" onsubmit="return confirm('¿Seguro que deseas cancelar/eliminar este evento?');">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="button button-danger">Eliminar función</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <a id="modal-book-cta" class="button" href="#">
+                                <span>Reservar entradas</span>
+                                <span aria-hidden="true">↗</span>
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script id="eventos-json-data" type="application/json">@Html.Raw(jsonEventos)</script>
+        <div id="anti-forgery-token-holder" style="display:none;">@Html.AntiForgeryToken()</div>
     }
 </section>
+
+@section Scripts {
+<script>
+(() => {
+    const rawData = document.getElementById('eventos-json-data');
+    if (!rawData) return;
+
+    let events = [];
+    try {
+        events = JSON.parse(rawData.textContent || '[]');
+    } catch (e) {
+        console.error('Error parsing events JSON', e);
+        return;
+    }
+
+    const MONTHS = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    const MONTHS_SHORT = [
+        'ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN',
+        'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'
+    ];
+
+    const getBarcodeSvg = () => `
+        <svg class="pass-barcode" viewBox="0 0 160 32" preserveAspectRatio="none" aria-hidden="true">
+            <rect x="0" y="0" width="2.5" height="32" fill="#0f0f0e"/>
+            <rect x="4.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+            <rect x="7.5" y="0" width="3.2" height="32" fill="#0f0f0e"/>
+            <rect x="13" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+            <rect x="16" y="0" width="4" height="32" fill="#0f0f0e"/>
+            <rect x="22" y="0" width="2" height="32" fill="#0f0f0e"/>
+            <rect x="26" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+            <rect x="29" y="0" width="3" height="32" fill="#0f0f0e"/>
+            <rect x="34" y="0" width="2" height="32" fill="#0f0f0e"/>
+            <rect x="38" y="0" width="4.2" height="32" fill="#0f0f0e"/>
+            <rect x="44.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+            <rect x="48" y="0" width="2.5" height="32" fill="#0f0f0e"/>
+            <rect x="52.5" y="0" width="3" height="32" fill="#0f0f0e"/>
+            <rect x="57.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+            <rect x="61" y="0" width="2.2" height="32" fill="#0f0f0e"/>
+            <rect x="65" y="0" width="4" height="32" fill="#0f0f0e"/>
+            <rect x="71" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+            <rect x="74.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+            <rect x="78" y="0" width="3.2" height="32" fill="#0f0f0e"/>
+            <rect x="83.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+            <rect x="87" y="0" width="2.5" height="32" fill="#0f0f0e"/>
+            <rect x="91.5" y="0" width="3.5" height="32" fill="#0f0f0e"/>
+            <rect x="97" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+            <rect x="100.5" y="0" width="2.2" height="32" fill="#0f0f0e"/>
+            <rect x="105" y="0" width="4" height="32" fill="#0f0f0e"/>
+            <rect x="111" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+            <rect x="114" y="0" width="3" height="32" fill="#0f0f0e"/>
+            <rect x="119" y="0" width="2" height="32" fill="#0f0f0e"/>
+            <rect x="123" y="0" width="3.8" height="32" fill="#0f0f0e"/>
+            <rect x="128.5" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+            <rect x="132" y="0" width="3" height="32" fill="#0f0f0e"/>
+            <rect x="137" y="0" width="2.2" height="32" fill="#0f0f0e"/>
+            <rect x="141" y="0" width="4" height="32" fill="#0f0f0e"/>
+            <rect x="147" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+            <rect x="150" y="0" width="2.8" height="32" fill="#0f0f0e"/>
+            <rect x="155" y="0" width="4.5" height="32" fill="#0f0f0e"/>
+        </svg>
+    `;
+
+    const now = new Date();
+    let initialYear = now.getFullYear();
+    let initialMonth = now.getMonth();
+
+    const futureEvent = events.find(e => {
+        const d = new Date(e.anio, e.mes - 1, e.dia, 23, 59, 59);
+        return d >= now;
+    }) || events[0];
+
+    if (futureEvent) {
+        initialYear = futureEvent.anio;
+        initialMonth = futureEvent.mes - 1;
+    }
+
+    let activeYear = initialYear;
+    let activeMonth = initialMonth;
+
+    const monthDisplay = document.getElementById('cal-month-display');
+    const monthCount = document.getElementById('cal-month-count');
+    const daysGrid = document.getElementById('calendar-days-grid');
+    const upcomingList = document.getElementById('cal-upcoming-list');
+    const upcomingHeadline = document.getElementById('upcoming-headline');
+
+    const btnPrev = document.getElementById('cal-prev');
+    const btnNext = document.getElementById('cal-next');
+    const btnToday = document.getElementById('cal-today');
+
+    const viewCalBtn = document.getElementById('btn-view-calendar');
+    const viewGridBtn = document.getElementById('btn-view-grid');
+    const calSection = document.getElementById('calendar-section');
+    const gridSection = document.getElementById('grid-section');
+
+    const modalBackdrop = document.getElementById('event-modal-backdrop');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+    const modalCancelBtn = document.getElementById('modal-cancel-btn');
+
+    const modalImg = document.getElementById('modal-img');
+    const modalDateBadge = document.getElementById('modal-date-badge');
+    const modalEyebrow = document.getElementById('modal-eyebrow');
+    const modalTitle = document.getElementById('modal-event-title');
+    const modalLocation = document.getElementById('modal-location');
+    const modalDesc = document.getElementById('modal-description');
+    const modalStockLabel = document.getElementById('modal-stock-label');
+    const modalProgressFill = document.getElementById('modal-progress-fill');
+    const modalTicketsList = document.getElementById('modal-tickets-list');
+    const modalBarcodeCode = document.getElementById('modal-barcode-code');
+    const modalBookCta = document.getElementById('modal-book-cta');
+
+    const openModal = (eventId) => {
+        const ev = events.find(e => e.id === Number(eventId));
+        if (!ev) return;
+
+        modalImg.src = ev.imagen || '/images/evento-fallback.jpg';
+        modalImg.alt = ev.titulo;
+        modalDateBadge.textContent = ev.fechaCorta;
+        modalEyebrow.textContent = ev.fechaTexto.toUpperCase();
+        modalTitle.textContent = ev.titulo;
+        modalLocation.textContent = ev.ubicacion;
+        modalDesc.textContent = ev.descripcion;
+        if (modalBarcodeCode) {
+            modalBarcodeCode.textContent = `* EVT-00${ev.id}-ACCESO *`;
+        }
+
+        const disp = ev.stockDisponible ?? 0;
+        const total = ev.capacidadTotal > 0 ? ev.capacidadTotal : 1;
+        const pct = Math.min(100, Math.max(0, Math.round((disp / total) * 100)));
+
+        modalStockLabel.textContent = `${disp} lugares disponibles de ${total}`;
+        modalProgressFill.style.width = `${pct}%`;
+
+        modalTicketsList.innerHTML = '';
+        if (ev.tipos && ev.tipos.length > 0) {
+            ev.tipos.forEach(t => {
+                const item = document.createElement('div');
+                item.className = 'modal-ticket-item';
+                item.innerHTML = `
+                    <span>${t.nombre}</span>
+                    <strong>${t.precio}</strong>
+                    <small>${t.stock} disponibles</small>
+                `;
+                modalTicketsList.appendChild(item);
+            });
+        } else {
+            modalTicketsList.innerHTML = '<p style="font-size:11px;color:var(--muted)">Consulte precios en taquilla.</p>';
+        }
+
+        const modalAdminEditBtn = document.getElementById('modal-admin-edit-btn');
+        const modalAdminDeleteForm = document.getElementById('modal-admin-delete-form');
+        if (modalAdminEditBtn) modalAdminEditBtn.href = `/admin?editar=${ev.id}#editor`;
+        if (modalAdminDeleteForm) modalAdminDeleteForm.action = `/admin/eventos/${ev.id}/cancelar`;
+        if (modalBookCta) modalBookCta.href = ev.reservaUrl;
+
+        modalBackdrop.hidden = false;
+        modalBackdrop.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        modalCloseBtn?.focus();
+    };
+
+    const closeModal = () => {
+        modalBackdrop.hidden = true;
+        modalBackdrop.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    };
+
+    modalCloseBtn?.addEventListener('click', closeModal);
+    modalCancelBtn?.addEventListener('click', closeModal);
+    modalBackdrop?.addEventListener('click', (e) => {
+        if (e.target === modalBackdrop) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modalBackdrop.hidden) closeModal();
+    });
+
+    document.addEventListener('click', (e) => {
+        const target = e.target.closest('[data-open-modal]');
+        if (target) {
+            e.preventDefault();
+            const id = target.getAttribute('data-open-modal');
+            if (id) openModal(id);
+        }
+    });
+
+    const renderCalendar = () => {
+        if (!daysGrid) return;
+        daysGrid.innerHTML = '';
+
+        monthDisplay.textContent = `${MONTHS[activeMonth]} ${activeYear}`;
+
+        const monthEvents = events.filter(e => e.anio === activeYear && e.mes === (activeMonth + 1));
+        const countText = monthEvents.length === 1 ? '1 evento programado' : `${monthEvents.length} eventos programados`;
+        monthCount.textContent = countText;
+
+        const firstDayIndex = (new Date(activeYear, activeMonth, 1).getDay() + 6) % 7;
+        const daysInMonth = new Date(activeYear, activeMonth + 1, 0).getDate();
+        const daysInPrevMonth = new Date(activeYear, activeMonth, 0).getDate();
+
+        for (let i = firstDayIndex - 1; i >= 0; i--) {
+            const dayNum = daysInPrevMonth - i;
+            const cell = document.createElement('div');
+            cell.className = 'cal-cell is-other-month';
+            cell.innerHTML = `
+                <div class="cal-cell-header">
+                    <span class="cal-day-num">${dayNum}</span>
+                </div>
+            `;
+            daysGrid.appendChild(cell);
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const cell = document.createElement('div');
+            cell.className = 'cal-cell';
+
+            const isToday = (day === now.getDate() && activeMonth === now.getMonth() && activeYear === now.getFullYear());
+            if (isToday) cell.classList.add('is-today');
+
+            const dayEvs = monthEvents.filter(e => e.dia === day);
+            if (dayEvs.length > 0) cell.classList.add('has-events');
+
+            let eventsHtml = '';
+            dayEvs.forEach((ev, idx) => {
+                const accentClass = `accent-${idx % 3}`;
+                eventsHtml += `
+                    <button type="button" class="cal-event-pill ${accentClass}" data-open-modal="${ev.id}" title="${ev.titulo} · ${ev.horaTexto}">
+                        <strong>${ev.titulo}</strong>
+                        <small>⌖ ${ev.horaTexto}</small>
+                    </button>
+                `;
+            });
+
+            cell.innerHTML = `
+                <div class="cal-cell-header">
+                    <span class="cal-day-num">${day}</span>
+                </div>
+                <div class="cal-cell-events">
+                    ${eventsHtml}
+                </div>
+            `;
+
+            if (dayEvs.length > 0) {
+                cell.style.cursor = 'pointer';
+                cell.addEventListener('click', (e) => {
+                    if (!e.target.closest('.cal-event-pill')) {
+                        openModal(dayEvs[0].id);
+                    }
+                });
+            }
+
+            daysGrid.appendChild(cell);
+        }
+
+        const currentTotal = firstDayIndex + daysInMonth;
+        const remaining = (7 - (currentTotal % 7)) % 7;
+        for (let day = 1; day <= remaining; day++) {
+            const cell = document.createElement('div');
+            cell.className = 'cal-cell is-other-month';
+            cell.innerHTML = `
+                <div class="cal-cell-header">
+                    <span class="cal-day-num">${day}</span>
+                </div>
+            `;
+            daysGrid.appendChild(cell);
+        }
+
+        upcomingHeadline.textContent = `Eventos en ${MONTHS[activeMonth]} ${activeYear}`;
+        upcomingList.innerHTML = '';
+        const isAdmin = @(User.IsInRole("Administrador") ? "true" : "false");
+        const afToken = document.querySelector('#anti-forgery-token-holder input[name="__RequestVerificationToken"]')?.value || '';
+        if (monthEvents.length > 0) {
+            monthEvents.forEach(ev => {
+                const dayPadded = String(ev.dia).padStart(2, '0');
+                const monthShort = MONTHS_SHORT[ev.mes - 1] || 'EVT';
+                const barcodeCode = `* EVT-00${ev.id}-BOLETO *`;
+                const actionHtml = isAdmin
+                    ? `
+                        <div class="evt-admin-btn-group" onclick="event.stopPropagation();">
+                            <a class="button button-small button-secondary" href="/admin?editar=${ev.id}#editor">Editar</a>
+                            <form action="/admin/eventos/${ev.id}/cancelar" method="post" style="display:inline;" onsubmit="return confirm('¿Seguro que deseas cancelar/eliminar este evento?');">
+                                <input type="hidden" name="__RequestVerificationToken" value="${afToken}">
+                                <button type="submit" class="button button-small button-danger">Eliminar</button>
+                            </form>
+                        </div>
+                      `
+                    : `
+                        <span class="evt-ticket-cta">
+                            <span>Ver boleto</span>
+                            <span aria-hidden="true">↗</span>
+                        </span>
+                      `;
+
+                const card = document.createElement('article');
+                card.className = 'event-ticket-pass';
+                card.setAttribute('data-open-modal', ev.id);
+                card.setAttribute('role', 'button');
+                card.setAttribute('tabindex', '0');
+                card.setAttribute('aria-label', `Boleto para ${ev.titulo}, ${ev.fechaTexto}`);
+                card.innerHTML = `
+                    <div class="evt-ticket-stub">
+                        <div class="stub-notch top"></div>
+                        <div class="stub-notch bottom"></div>
+                        <div class="evt-stub-brand">ENTRADA</div>
+                        <div class="evt-stub-date">
+                            <strong>${dayPadded}</strong>
+                            <span>${monthShort}</span>
+                            <small>${ev.anio}</small>
+                        </div>
+                        <div class="evt-stub-badge">PASE OFICIAL</div>
+                    </div>
+                    <div class="evt-ticket-perforation" aria-hidden="true"></div>
+                    <div class="evt-ticket-body">
+                        <div class="evt-ticket-top">
+                            <span class="evt-ticket-kicker">DISPONIBLE · ${ev.stockDisponible} CUPOS</span>
+                            <span class="evt-ticket-price">Desde ${ev.precioDesde}</span>
+                        </div>
+                        <h4 class="evt-ticket-title">${ev.titulo}</h4>
+                        <div class="evt-ticket-meta">
+                            <span><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${ev.horaTexto}</span>
+                            <span><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg> ${ev.ubicacion}</span>
+                        </div>
+                        <div class="evt-ticket-bottom">
+                            <div class="evt-barcode-wrap" title="Código digital de acceso">
+                                ${getBarcodeSvg()}
+                                <span class="pass-barcode-text">${barcodeCode}</span>
+                            </div>
+                            ${actionHtml}
+                        </div>
+                    </div>
+                `;
+                card.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openModal(ev.id);
+                    }
+                });
+                upcomingList.appendChild(card);
+            });
+        } else {
+            upcomingList.innerHTML = `
+                <div style="grid-column: 1/-1; padding: 24px; text-align: center; color: var(--muted); font-size: 12px; background: var(--paper); border-radius: 14px;">
+                    No hay eventos programados para ${MONTHS[activeMonth]} de ${activeYear}.
+                    <div style="margin-top: 10px;">
+                        <button type="button" class="button button-small button-secondary" id="jump-to-next-event">Ver próximo evento programado</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('jump-to-next-event')?.addEventListener('click', () => {
+                if (futureEvent) {
+                    activeYear = futureEvent.anio;
+                    activeMonth = futureEvent.mes - 1;
+                    renderCalendar();
+                }
+            });
+        }
+    };
+
+    btnPrev?.addEventListener('click', () => {
+        activeMonth--;
+        if (activeMonth < 0) {
+            activeMonth = 11;
+            activeYear--;
+        }
+        renderCalendar();
+    });
+
+    btnNext?.addEventListener('click', () => {
+        activeMonth++;
+        if (activeMonth > 11) {
+            activeMonth = 0;
+            activeYear++;
+        }
+        renderCalendar();
+    });
+
+    btnToday?.addEventListener('click', () => {
+        activeYear = now.getFullYear();
+        activeMonth = now.getMonth();
+        renderCalendar();
+    });
+
+    viewCalBtn?.addEventListener('click', () => {
+        viewCalBtn.classList.add('is-active');
+        viewCalBtn.setAttribute('aria-selected', 'true');
+        viewGridBtn.classList.remove('is-active');
+        viewGridBtn.setAttribute('aria-selected', 'false');
+
+        calSection.hidden = false;
+        gridSection.hidden = true;
+    });
+
+    viewGridBtn?.addEventListener('click', () => {
+        viewGridBtn.classList.add('is-active');
+        viewGridBtn.setAttribute('aria-selected', 'true');
+        viewCalBtn.classList.remove('is-active');
+        viewCalBtn.setAttribute('aria-selected', 'false');
+
+        gridSection.hidden = false;
+        calSection.hidden = true;
+    });
+
+    // Sincronizar buscador con ambas vistas
+    const searchInput = document.querySelector('[data-event-search]');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            const term = searchInput.value.trim().toLowerCase();
+            if (term.length > 0 && calSection && !calSection.hidden) {
+                // Si está buscando activamente, destacamos en el calendario o cambiamos a vista cartelera si lo desea
+            }
+        });
+    }
+
+    renderCalendar();
+})();
+</script>
+}

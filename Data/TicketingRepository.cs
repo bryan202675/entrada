@@ -396,6 +396,51 @@ public sealed class TicketingRepository
         return resultados;
     }
 
+    public async Task<IReadOnlyList<BoletoDetalleAdmin>> ObtenerBoletosDetalleAdminAsync(CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT b.Id, b.CodigoUnico, te.Nombre, te.Precio, b.Estado, b.FechaUso,
+                   r.Id, u.Nombre, u.Email, e.Id, e.Titulo, e.Fecha, r.FechaReserva, r.Estado
+            FROM dbo.Boletos b
+            INNER JOIN dbo.TiposEntrada te ON te.Id = b.TipoEntradaId
+            INNER JOIN dbo.Reservas r ON r.Id = b.ReservaId
+            INNER JOIN dbo.Usuarios u ON u.Id = r.UsuarioId
+            INNER JOIN dbo.Eventos e ON e.Id = r.EventoId
+            ORDER BY r.FechaReserva DESC, b.Id ASC;
+            """;
+
+        var lista = new List<BoletoDetalleAdmin>();
+        await using var connection = _connections.Create();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new SqlCommand(sql, connection);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var boletoId = reader.GetInt64(0);
+            var codigo = reader.GetString(1);
+            var tipo = reader.GetString(2);
+            var precio = reader.GetDecimal(3);
+            var estadoBoleto = reader.GetString(4);
+            var fechaUso = reader.IsDBNull(5) ? (DateTime?)null : reader.GetDateTime(5);
+            var reservaId = reader.GetInt64(6);
+            var identReserva = $"RES-{reservaId:D6}";
+            var usuarioNombre = reader.GetString(7);
+            var usuarioEmail = reader.GetString(8);
+            var eventoId = reader.GetInt32(9);
+            var eventoTitulo = reader.GetString(10);
+            var fechaEvento = reader.GetDateTime(11);
+            var fechaReserva = reader.GetDateTime(12);
+            var estadoReserva = reader.GetString(13);
+
+            lista.Add(new BoletoDetalleAdmin(
+                boletoId, codigo, tipo, precio, estadoBoleto, fechaUso,
+                reservaId, identReserva, usuarioNombre, usuarioEmail,
+                eventoId, eventoTitulo, fechaEvento, fechaReserva, estadoReserva
+            ));
+        }
+        return lista;
+    }
+
     public async Task<AccesoResultado> ValidarAccesoAsync(int eventoId, string codigo, CancellationToken cancellationToken)
     {
         await using var connection = _connections.Create();
@@ -404,6 +449,43 @@ public sealed class TicketingRepository
 
         try
         {
+            var codigoLimpio = (codigo ?? string.Empty).Trim().ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(codigoLimpio))
+            {
+                return new AccesoResultado(false, false, "Ingresa un código de boleto o de reserva.", null, null, null, null);
+            }
+
+            long? reservaId = null;
+            if (codigoLimpio.StartsWith("RES-") && long.TryParse(codigoLimpio[4..], out var rId))
+            {
+                reservaId = rId;
+            }
+            else if (codigoLimpio.StartsWith("RES") && long.TryParse(codigoLimpio[3..], out var rId2))
+            {
+                reservaId = rId2;
+            }
+
+            // 1. Si el código corresponde a una reserva (ej. RES-010002)
+            if (reservaId.HasValue)
+            {
+                return await ValidarPorReservaInternoAsync(connection, (SqlTransaction)transaction, eventoId, reservaId.Value, cancellationToken);
+            }
+
+            // 2. Si no es un código RES, intentar validación directa de boleto (ENT-XXXXXX)
+            var codigoBoleto = codigoLimpio;
+            if (codigoLimpio.StartsWith("ENT-") && long.TryParse(codigoLimpio[4..], out var bNum))
+            {
+                codigoBoleto = $"ENT-{bNum:D6}";
+            }
+            else if (codigoLimpio.StartsWith("ENT") && long.TryParse(codigoLimpio[3..], out var bNum2))
+            {
+                codigoBoleto = $"ENT-{bNum2:D6}";
+            }
+            else if (long.TryParse(codigoLimpio, out var numPlain))
+            {
+                codigoBoleto = $"ENT-{numPlain:D6}";
+            }
+
             const string usarSql = """
                 UPDATE b WITH (UPDLOCK, ROWLOCK)
                 SET b.Estado = 'Utilizado', b.FechaUso = SYSUTCDATETIME()
@@ -413,18 +495,19 @@ public sealed class TicketingRepository
                 INNER JOIN dbo.Eventos e ON e.Id = r.EventoId
                 INNER JOIN dbo.Usuarios u ON u.Id = r.UsuarioId
                 INNER JOIN dbo.TiposEntrada te ON te.Id = b.TipoEntradaId
-                WHERE b.CodigoUnico = @Codigo AND e.Id = @EventoId
+                WHERE (b.CodigoUnico = @Codigo OR b.CodigoUnico = @CodigoOriginal) AND e.Id = @EventoId
                   AND b.Estado = 'Activo' AND r.Estado = 'Confirmada' AND e.Estado = 'Activo';
                 """;
 
             await using (var usar = new SqlCommand(usarSql, connection, (SqlTransaction)transaction))
             {
-                usar.Parameters.Add("@Codigo", SqlDbType.VarChar, 30).Value = codigo.Trim().ToUpperInvariant();
+                usar.Parameters.Add("@Codigo", SqlDbType.VarChar, 30).Value = codigoBoleto;
+                usar.Parameters.Add("@CodigoOriginal", SqlDbType.VarChar, 30).Value = codigoLimpio;
                 usar.Parameters.Add("@EventoId", SqlDbType.Int).Value = eventoId;
                 await using var reader = await usar.ExecuteReaderAsync(CommandBehavior.SingleRow, cancellationToken);
                 if (await reader.ReadAsync(cancellationToken))
                 {
-                    var resultado = new AccesoResultado(true, true, "Acceso autorizado", reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetDateTime(3));
+                    var resultado = new AccesoResultado(true, true, $"Acceso autorizado ({codigoBoleto})", reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetDateTime(3));
                     await reader.DisposeAsync();
                     await transaction.CommitAsync(cancellationToken);
                     return resultado;
@@ -438,15 +521,24 @@ public sealed class TicketingRepository
                 INNER JOIN dbo.Eventos e ON e.Id = r.EventoId
                 INNER JOIN dbo.Usuarios u ON u.Id = r.UsuarioId
                 INNER JOIN dbo.TiposEntrada te ON te.Id = b.TipoEntradaId
-                WHERE b.CodigoUnico = @Codigo;
+                WHERE b.CodigoUnico = @Codigo OR b.CodigoUnico = @CodigoOriginal;
                 """;
             await using var estado = new SqlCommand(estadoSql, connection, (SqlTransaction)transaction);
-            estado.Parameters.Add("@Codigo", SqlDbType.VarChar, 30).Value = codigo.Trim().ToUpperInvariant();
+            estado.Parameters.Add("@Codigo", SqlDbType.VarChar, 30).Value = codigoBoleto;
+            estado.Parameters.Add("@CodigoOriginal", SqlDbType.VarChar, 30).Value = codigoLimpio;
             await using var estadoReader = await estado.ExecuteReaderAsync(CommandBehavior.SingleRow, cancellationToken);
             AccesoResultado fallo;
             if (!await estadoReader.ReadAsync(cancellationToken))
             {
-                fallo = new AccesoResultado(false, false, "El código no corresponde a un boleto emitido.", null, null, null, null);
+                await estadoReader.DisposeAsync();
+
+                // Si fue un número simple (ej. 10002) y no se encontró como boleto, intentar como reserva
+                if (long.TryParse(codigoLimpio, out var posibleReservaId))
+                {
+                    return await ValidarPorReservaInternoAsync(connection, (SqlTransaction)transaction, eventoId, posibleReservaId, cancellationToken);
+                }
+
+                fallo = new AccesoResultado(false, false, "El código no corresponde a un boleto o reserva emitidos.", null, null, null, null);
             }
             else
             {
@@ -458,8 +550,9 @@ public sealed class TicketingRepository
                         ? "Este boleto ya fue utilizado y no permite un segundo ingreso."
                         : "El boleto o su evento están cancelados.";
                 fallo = new AccesoResultado(true, false, mensaje, estadoReader.GetString(1), estadoReader.GetString(2), estadoReader.GetString(3), estadoReader.IsDBNull(5) ? null : estadoReader.GetDateTime(5));
+                await estadoReader.DisposeAsync();
             }
-            await estadoReader.DisposeAsync();
+
             await transaction.CommitAsync(cancellationToken);
             return fallo;
         }
@@ -468,6 +561,108 @@ public sealed class TicketingRepository
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    private static async Task<AccesoResultado> ValidarPorReservaInternoAsync(SqlConnection connection, SqlTransaction transaction, int eventoId, long reservaId, CancellationToken cancellationToken)
+    {
+        const string reservaSql = """
+            SELECT r.Id, r.EventoId, e.Titulo, u.Nombre, r.Estado, e.Estado
+            FROM dbo.Reservas r
+            INNER JOIN dbo.Eventos e ON e.Id = r.EventoId
+            INNER JOIN dbo.Usuarios u ON u.Id = r.UsuarioId
+            WHERE r.Id = @ReservaId;
+            """;
+
+        await using var reservaCmd = new SqlCommand(reservaSql, connection, transaction);
+        reservaCmd.Parameters.Add("@ReservaId", SqlDbType.BigInt).Value = reservaId;
+        await using var reservaReader = await reservaCmd.ExecuteReaderAsync(CommandBehavior.SingleRow, cancellationToken);
+
+        if (!await reservaReader.ReadAsync(cancellationToken))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new AccesoResultado(false, false, $"No se encontró ninguna reserva con el código RES-{reservaId:D6}.", null, null, null, null);
+        }
+
+        var rEventoId = reservaReader.GetInt32(1);
+        var rEventoTitulo = reservaReader.GetString(2);
+        var rUsuarioNombre = reservaReader.GetString(3);
+        var rEstado = reservaReader.GetString(4);
+        var eEstado = reservaReader.GetString(5);
+        await reservaReader.DisposeAsync();
+
+        if (rEventoId != eventoId)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new AccesoResultado(true, false, "La reserva pertenece a otro evento programado.", rEventoTitulo, rUsuarioNombre, null, null);
+        }
+
+        if (rEstado != "Confirmada" || eEstado != "Activo")
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new AccesoResultado(true, false, "La reserva o el evento se encuentran cancelados.", rEventoTitulo, rUsuarioNombre, null, null);
+        }
+
+        const string boletosReservaSql = """
+            SELECT b.Id, b.CodigoUnico, b.Estado, te.Nombre, b.FechaUso
+            FROM dbo.Boletos b WITH (UPDLOCK, ROWLOCK)
+            INNER JOIN dbo.TiposEntrada te ON te.Id = b.TipoEntradaId
+            WHERE b.ReservaId = @ReservaId
+            ORDER BY b.Id ASC;
+            """;
+
+        var boletos = new List<(long Id, string Codigo, string Estado, string Tipo, DateTime? FechaUso)>();
+        await using var boletosCmd = new SqlCommand(boletosReservaSql, connection, transaction);
+        boletosCmd.Parameters.Add("@ReservaId", SqlDbType.BigInt).Value = reservaId;
+        await using (var boletosReader = await boletosCmd.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await boletosReader.ReadAsync(cancellationToken))
+            {
+                boletos.Add((
+                    boletosReader.GetInt64(0),
+                    boletosReader.GetString(1),
+                    boletosReader.GetString(2),
+                    boletosReader.GetString(3),
+                    boletosReader.IsDBNull(4) ? null : boletosReader.GetDateTime(4)
+                ));
+            }
+        }
+
+        if (boletos.Count == 0)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new AccesoResultado(true, false, "La reserva no contiene boletos emitidos.", rEventoTitulo, rUsuarioNombre, null, null);
+        }
+
+        var activo = boletos.FirstOrDefault(b => b.Estado == "Activo");
+        var boletosUsados = boletos.Count(b => b.Estado == "Utilizado");
+        var totalBoletos = boletos.Count;
+
+        if (activo == default)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            var ultimoUso = boletos.LastOrDefault(b => b.FechaUso.HasValue).FechaUso;
+            return new AccesoResultado(true, false, $"Todos los boletos de esta orden ({totalBoletos}) ya fueron utilizados.", rEventoTitulo, rUsuarioNombre, boletos[0].Tipo, ultimoUso);
+        }
+
+        const string marcarUsoSql = """
+            UPDATE dbo.Boletos
+            SET Estado = 'Utilizado', FechaUso = SYSUTCDATETIME()
+            OUTPUT INSERTED.FechaUso
+            WHERE Id = @BoletoId AND Estado = 'Activo';
+            """;
+
+        await using var marcarCmd = new SqlCommand(marcarUsoSql, connection, transaction);
+        marcarCmd.Parameters.Add("@BoletoId", SqlDbType.BigInt).Value = activo.Id;
+        var fechaObj = await marcarCmd.ExecuteScalarAsync(cancellationToken);
+        var fechaUsoActual = Convert.ToDateTime(fechaObj);
+
+        await transaction.CommitAsync(cancellationToken);
+
+        var mensajeExito = totalBoletos == 1
+            ? $"Acceso autorizado (Reserva RES-{reservaId:D6} · Boleto {activo.Codigo})"
+            : $"Acceso autorizado (Reserva RES-{reservaId:D6} · Boleto {activo.Codigo} · {boletosUsados + 1} de {totalBoletos} validados)";
+
+        return new AccesoResultado(true, true, mensajeExito, rEventoTitulo, rUsuarioNombre, activo.Tipo, fechaUsoActual);
     }
 
     private static async Task<IReadOnlyList<EventoResumen>> LeerEventosAsync(SqlDataReader reader, CancellationToken cancellationToken)

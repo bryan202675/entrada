@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace Entrada.Models;
 
@@ -54,6 +55,23 @@ public sealed record ReservaAdmin(
     int Cantidad,
     decimal Total,
     string Estado);
+
+public sealed record BoletoDetalleAdmin(
+    long BoletoId,
+    string CodigoBoleto,
+    string TipoEntrada,
+    decimal Precio,
+    string EstadoBoleto,
+    DateTime? FechaUso,
+    long ReservaId,
+    string IdentificadorReserva,
+    string UsuarioNombre,
+    string UsuarioEmail,
+    int EventoId,
+    string EventoTitulo,
+    DateTime FechaEvento,
+    DateTime FechaReserva,
+    string EstadoReserva);
 
 public sealed record AccesoResultado(bool Encontrado, bool Permitido, string Mensaje, string? Evento, string? Asistente, string? Tipo, DateTime? FechaUso);
 
@@ -114,7 +132,7 @@ public sealed class ReservaViewModel
     public int MaximoPorReserva { get; init; }
 }
 
-public sealed class EventoInput
+public sealed record EventoInput
 {
     public int? Id { get; init; }
 
@@ -136,6 +154,8 @@ public sealed class EventoInput
     [Required]
     [StringLength(300)]
     public string Imagen { get; init; } = "/images/evento-arte.jpg";
+
+    public IFormFile? ArchivoImagen { get; init; }
 
     [Range(0, 10000)]
     public decimal PrecioGeneral { get; init; }
@@ -160,6 +180,7 @@ public sealed class AdminDashboardViewModel
 {
     public required DashboardResumen Resumen { get; init; }
     public required EventoInput Formulario { get; init; }
+    public IReadOnlyList<BoletoDetalleAdmin> BoletosDetalle { get; init; } = Array.Empty<BoletoDetalleAdmin>();
     public bool Editando => Formulario.Id.HasValue;
 }
 
@@ -168,8 +189,8 @@ public sealed class AccesoInput
     [Range(1, int.MaxValue, ErrorMessage = "Selecciona el evento.")]
     public int EventoId { get; init; }
 
-    [Required(ErrorMessage = "Escribe el código del boleto.")]
-    [RegularExpression("^ENT-[0-9]{6,}$", ErrorMessage = "Usa un código con formato ENT-000001.")]
+    [Required(ErrorMessage = "Escribe el código del boleto o de la reserva.")]
+    [RegularExpression(@"^\s*(?:([Ee][Nn][Tt]|[Rr][Ee][Ss])-?)?[0-9]{1,12}\s*$", ErrorMessage = "Usa un código válido con formato ENT-000001 o RES-000001.")]
     public string Codigo { get; init; } = string.Empty;
 }
 

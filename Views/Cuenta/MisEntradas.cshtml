@@ -2,11 +2,11 @@
 @{
     ViewData["Title"] = "Mi cuenta";
     var totalEntradas = Model.Sum(reserva => reserva.Boletos.Count);
+    var culturaSv = new System.Globalization.CultureInfo("es-SV");
 }
 <section class="account-page container">
     <header class="account-hero">
         <div class="account-hero-copy">
-            <span class="eyebrow">Tu espacio en ENTRADA</span>
             <h1>La cultura se vive.<br /><em>Y se guarda.</em></h1>
             <p>Tu archivo personal de experiencias y entradas, siempre a mano.</p>
             <div class="account-actions">
@@ -31,15 +31,106 @@
             @foreach (var reserva in Model)
             {
                 var fecha = DateTime.SpecifyKind(reserva.FechaEvento, DateTimeKind.Utc).ToLocalTime();
-                <article class="wallet-card">
-                    <div class="wallet-date"><strong>@fecha.ToString("dd")</strong><span>@fecha.ToString("MMM").ToUpperInvariant()</span><small>@fecha.ToString("yyyy")</small></div>
-                    <div class="wallet-content">
-                        <div class="wallet-head"><div><span>@reserva.Identificador</span><h2>@reserva.Evento</h2><p>@fecha.ToString("dddd · h:mm tt") · @reserva.Ubicacion</p></div><a asp-controller="Eventos" asp-action="Confirmacion" asp-route-id="@reserva.Id">Abrir reserva <span aria-hidden="true">→</span></a></div>
-                        <div class="wallet-codes">
-                            @foreach (var boleto in reserva.Boletos)
-                            {
-                                <div class="code-pill"><span>@boleto.Tipo</span><strong>@boleto.CodigoUnico</strong><em class="status status-@boleto.Estado.ToLowerInvariant()">@boleto.Estado</em></div>
-                            }
+                <article class="real-ticket-card" id="reserva-@reserva.Id">
+                    <div class="ticket-stub">
+                        <div class="stub-notch top"></div>
+                        <div class="stub-notch bottom"></div>
+                        <div class="stub-badge">ENTRADA</div>
+                        <div class="stub-date">
+                            <strong>@fecha.ToString("dd")</strong>
+                            <span>@fecha.ToString("MMM", culturaSv).ToUpperInvariant()</span>
+                            <small>@fecha.ToString("yyyy")</small>
+                        </div>
+                        <div class="stub-serial">@reserva.Identificador</div>
+                    </div>
+
+                    <div class="ticket-perforation" aria-hidden="true"></div>
+
+                    <div class="ticket-main-body">
+                        <div class="ticket-top-bar">
+                            <div class="ticket-event-details">
+                                <div class="ticket-kicker-row">
+                                    <span class="ticket-category-tag">@reserva.Tipo</span>
+                                    <span class="ticket-order-tag">ORDEN @reserva.Identificador</span>
+                                    <span class="status status-@reserva.Estado.ToLowerInvariant()">@reserva.Estado</span>
+                                </div>
+                                <h2 class="ticket-title">@reserva.Evento</h2>
+                                <div class="ticket-meta-row">
+                                    <span><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> @fecha.ToString("dddd, d 'de' MMMM · h:mm tt", culturaSv)</span>
+                                    <span><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg> @reserva.Ubicacion</span>
+                                </div>
+                            </div>
+                            <div class="ticket-header-action">
+                                <a class="ticket-btn-open" asp-controller="Eventos" asp-action="Confirmacion" asp-route-id="@reserva.Id">
+                                    <span>Abrir reserva</span>
+                                    <span aria-hidden="true">↗</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="ticket-passes-container">
+                            <div class="ticket-passes-label">
+                                <span>BOLETOS DE ACCESO (@reserva.Boletos.Count @(reserva.Boletos.Count == 1 ? "ENTRADA" : "ENTRADAS"))</span>
+                                <small>Presenta el código de barras en el control de acceso</small>
+                            </div>
+                            <div class="ticket-passes-grid">
+                                @foreach (var boleto in reserva.Boletos)
+                                {
+                                    <div class="entry-pass">
+                                        <div class="pass-info">
+                                            <div class="pass-tag-row">
+                                                <span class="pass-tier">@boleto.Tipo</span>
+                                                <span class="status status-@boleto.Estado.ToLowerInvariant()">@boleto.Estado</span>
+                                            </div>
+                                            <div class="pass-code-label">CÓDIGO DIGITAL</div>
+                                            <strong class="pass-code-value">@boleto.CodigoUnico</strong>
+                                            <span class="pass-access-hint">1 acceso admitido</span>
+                                        </div>
+                                        <div class="pass-barcode-box">
+                                            <svg class="pass-barcode" viewBox="0 0 160 40" preserveAspectRatio="none" aria-label="Código de barras @boleto.CodigoUnico">
+                                                <rect x="0" y="0" width="2.5" height="32" fill="#0f0f0e"/>
+                                                <rect x="4.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="7.5" y="0" width="3.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="13" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+                                                <rect x="16" y="0" width="4" height="32" fill="#0f0f0e"/>
+                                                <rect x="22" y="0" width="2" height="32" fill="#0f0f0e"/>
+                                                <rect x="26" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="29" y="0" width="3" height="32" fill="#0f0f0e"/>
+                                                <rect x="34" y="0" width="2" height="32" fill="#0f0f0e"/>
+                                                <rect x="38" y="0" width="4.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="44.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="48" y="0" width="2.5" height="32" fill="#0f0f0e"/>
+                                                <rect x="52.5" y="0" width="3" height="32" fill="#0f0f0e"/>
+                                                <rect x="57.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="61" y="0" width="2.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="65" y="0" width="4" height="32" fill="#0f0f0e"/>
+                                                <rect x="71" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+                                                <rect x="74.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="78" y="0" width="3.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="83.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="86.5" y="0" width="2.5" height="32" fill="#0f0f0e"/>
+                                                <rect x="91" y="0" width="4" height="32" fill="#0f0f0e"/>
+                                                <rect x="97" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="100.5" y="0" width="3.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="105.5" y="0" width="2.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="109.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="113" y="0" width="4" height="32" fill="#0f0f0e"/>
+                                                <rect x="119" y="0" width="2" height="32" fill="#0f0f0e"/>
+                                                <rect x="123" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="126" y="0" width="3" height="32" fill="#0f0f0e"/>
+                                                <rect x="131" y="0" width="2.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="135.5" y="0" width="4" height="32" fill="#0f0f0e"/>
+                                                <rect x="141.5" y="0" width="1.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="144.5" y="0" width="2.5" height="32" fill="#0f0f0e"/>
+                                                <rect x="149" y="0" width="3.2" height="32" fill="#0f0f0e"/>
+                                                <rect x="154.5" y="0" width="1.5" height="32" fill="#0f0f0e"/>
+                                                <rect x="158" y="0" width="2" height="32" fill="#0f0f0e"/>
+                                            </svg>
+                                            <span class="pass-barcode-text">* @boleto.CodigoUnico *</span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
                         </div>
                     </div>
                 </article>

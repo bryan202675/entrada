@@ -114,6 +114,10 @@ public sealed class CuentaController : Controller
     [HttpGet("mis-entradas")]
     public async Task<IActionResult> MisEntradas(CancellationToken cancellationToken)
     {
+        if (User.IsInRole("Administrador"))
+        {
+            return RedirectToAction("Index", "Admin");
+        }
         var reservas = await _repository.ObtenerReservasUsuarioAsync(UsuarioId(), cancellationToken);
         return View(reservas);
     }

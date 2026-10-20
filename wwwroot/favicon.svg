@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff194"/>
+      <stop offset="100%" stop-color="#fcd443"/>
+    </linearGradient>
+  </defs>
+  <!-- Base redondeada oscura con borde sutil -->
+  <rect width="64" height="64" rx="14" fill="#0f0f0e"/>
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="13.25" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+
+  <!-- Silueta de Ticket troquelado en amarillo Entrada -->
+  <path d="M 12 14
+           L 52 14
+           A 3 3 0 0 1 55 17
+           L 55 26
+           A 6 6 0 0 0 55 38
+           L 55 47
+           A 3 3 0 0 1 52 50
+           L 12 50
+           A 3 3 0 0 1 9 47
+           L 9 38
+           A 6 6 0 0 0 9 26
+           L 9 17
+           A 3 3 0 0 1 12 14 Z"
+        fill="url(#gold)"/>
+
+  <!-- Línea de perforación / troquelado del talón -->
+  <line x1="24" y1="16" x2="24" y2="48" stroke="#0f0f0e" stroke-width="2" stroke-dasharray="3,3" opacity="0.45"/>
+
+  <!-- Letra E estilizada en el cuerpo del ticket -->
+  <path d="M 31 23 L 45 23 L 45 27.5 L 36.5 27.5 L 36.5 30 L 43.5 30 L 43.5 34 L 36.5 34 L 36.5 36.5 L 45 36.5 L 45 41 L 31 41 Z" fill="#0f0f0e"/>
+
+  <!-- Sello / punto rojo característico de ENTRADA en el talón -->
+  <circle cx="16.5" cy="32" r="3.2" fill="#e02b20"/>
+</svg>

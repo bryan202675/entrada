@@ -2,8 +2,8 @@
 @{
     Layout = null;
     var catalogUrl = Url.Action("Index", "Eventos");
-    var accountUrl = User.Identity?.IsAuthenticated == true ? Url.Action("MisEntradas", "Cuenta") : Url.Action("Login", "Cuenta");
-    var communityUrl = User.Identity?.IsAuthenticated == true ? Url.Action("MisEntradas", "Cuenta") : Url.Action("Registro", "Cuenta");
+    var accountUrl = User.Identity?.IsAuthenticated == true ? (User.IsInRole("Administrador") ? Url.Action("Index", "Admin") : Url.Action("MisEntradas", "Cuenta")) : Url.Action("Login", "Cuenta");
+    var communityUrl = User.Identity?.IsAuthenticated == true ? (User.IsInRole("Administrador") ? Url.Action("Index", "Admin") : Url.Action("MisEntradas", "Cuenta")) : Url.Action("Registro", "Cuenta");
 }
 <!DOCTYPE html>
 <html lang="es">
@@ -12,6 +12,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#f5f4ef" />
 <title>ENTRADA — Un archivo de cultura en movimiento</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <script>if(!matchMedia('(prefers-reduced-motion: reduce)').matches)document.documentElement.classList.add('intro');</script>
 <style>
 @@font-face{font-family:Archivo;src:url('/assets/fonts/archivo.woff2') format('woff2');font-weight:100 900;font-stretch:62% 125%;font-display:block}
@@ -104,15 +107,17 @@
 <header class="hdr" data-header>
 <div class="util">
 <nav class="unav" aria-label="Enlaces útiles">
-<div class="unav-links">
-<a class="unav-link" href="@catalogUrl">Programación</a>
-<a class="unav-link" href="@catalogUrl">Eventos</a>
-</div>
-<span class="unav-rule"></span>
 <div class="unav-actions">
 @if (User.Identity?.IsAuthenticated == true)
 {
-<a class="unav-user" asp-controller="Cuenta" asp-action="MisEntradas"><span class="unav-avatar">@User.Identity.Name?.Substring(0, 1).ToUpperInvariant()</span><span>@User.Identity.Name</span></a>
+    @if (User.IsInRole("Administrador"))
+    {
+        <a class="unav-user" asp-controller="Admin" asp-action="Index"><span class="unav-avatar">@User.Identity.Name?.Substring(0, 1).ToUpperInvariant()</span><span>Dashboard</span></a>
+    }
+    else
+    {
+        <a class="unav-user" asp-controller="Cuenta" asp-action="MisEntradas"><span class="unav-avatar">@User.Identity.Name?.Substring(0, 1).ToUpperInvariant()</span><span>@User.Identity.Name</span></a>
+    }
 }
 else
 {
@@ -129,6 +134,7 @@ else
 <nav class="main-nav" aria-label="Navegación principal">
 <a class="nav-exp" href="@catalogUrl"><span>Experiencias</span><span class="round-arrow"><svg viewBox="0 0 16 16"><path d="M3 13 13 3M6 3h7v7"/></svg></span></a>
 <span class="nav-sep"></span>
+<a class="nav-link-item" href="@catalogUrl">Programación</a>
 <a class="nav-link-item" href="@accountUrl">Mis entradas</a>
 <a class="nav-link-item" href="@communityUrl">Comunidad</a>
 <button class="menu-btn" type="button" aria-expanded="false" aria-controls="menu-panel" data-menu-button><span class="burger" aria-hidden="true"><i></i><i></i></span><span>Menú</span></button>
@@ -138,7 +144,7 @@ else
 </div>
 <nav class="menu-panel" id="menu-panel" aria-label="Menú expandido"><a href="@catalogUrl">Explorar eventos <span>↗</span></a><a href="@accountUrl">Mis entradas <span>↗</span></a><a href="@(catalogUrl + "#buscar")">Buscar eventos <span>↗</span></a>@if(User.IsInRole("Administrador")){<a asp-controller="Admin" asp-action="Index">Administración <span>↗</span></a>}<a href="@communityUrl">Comunidad <span>↗</span></a></nav>
 </header>
-<section class="hero" aria-labelledby="hero-title"><h1 id="hero-title"><span><span class="ln">Un archivo</span></span><span><span class="ln">de cultura</span></span><span><span class="ln">viva en</span></span><span><span class="ln">escena</span></span></h1><p>ENTRADA reúne conciertos, arte y talento en una colección de experiencias para vivir en comunidad durante nuestra <strong>Temporada Cultural Anual</strong>, otoño 2026.</p><div class="acts"><a class="hero-ticket" href="@catalogUrl" aria-label="Explorar entradas"><span class="ticket-label">Entradas</span><span class="ticket-disc"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 9h18v14H7zM11 9v4M11 19v4"/></svg></span></a><a class="install-link" href="@catalogUrl"><span>Experiencias</span><span class="round-arrow"><svg viewBox="0 0 16 16"><path d="M3 13 13 3M6 3h7v7"/></svg></span></a></div></section>
+<section class="hero" aria-labelledby="hero-title"><h1 id="hero-title"><span><span class="ln">Un archivo</span></span><span><span class="ln">de cultura</span></span><span><span class="ln">viva en</span></span><span><span class="ln">escena</span></span></h1><p>Sistema de ticketing y control de acceso para <strong>eventos culturales y talent shows escolares</strong>. Diseñado para instituciones educativas y colectivos que gestionan aforo en tiempo real, reservas por tipo de entrada y acceso ágil sin duplicados.</p><div class="acts"><a class="hero-ticket" href="@catalogUrl" aria-label="Explorar entradas"><span class="ticket-label">Entradas</span><span class="ticket-disc"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 9h18v14H7zM11 9v4M11 19v4"/></svg></span></a><a class="install-link" href="@catalogUrl"><span>Experiencias</span><span class="round-arrow"><svg viewBox="0 0 16 16"><path d="M3 13 13 3M6 3h7v7"/></svg></span></a></div></section>
 <div class="grid" aria-hidden="true">
 <div class="col x3"><span class="cell ph" style="--pic:url('/images/hero/12.jpg')"></span><span class="cell blue"></span><span class="cell dark"></span><span class="cell ph" style="--pic:url('/images/hero/06.jpg')"></span><span class="cell yellow"></span></div><div class="col x2"><span class="cell yellow"></span><span class="cell ph" style="--pic:url('/images/hero/11.jpg')"></span><span class="cell cream"></span><span class="cell red"></span><span class="cell ph" style="--pic:url('/images/hero/13.jpg')"></span></div><div class="col x1"><span class="cell blue"></span><span class="cell ph" style="--pic:url('/images/hero/05.jpg')"></span><span class="cell red"></span><span class="cell ph" style="--pic:url('/images/hero/02.jpg')"></span><span class="cell cream"></span></div>
 <div class="col c1"><span class="cell red"></span><span class="cell ph" style="--pic:url('/images/hero/04.jpg')"></span><span class="cell ph" style="--pic:url('/images/hero/10.jpg')"></span><span class="cell blue"></span><span class="cell ph" style="--pic:url('/images/hero/01.jpg')"></span></div><div class="col c2"><span class="cell yellow"></span><span class="cell ph" style="--pic:url('/images/hero/03.jpg')"></span><span class="cell dark"></span><span class="cell ph" style="--pic:url('/images/hero/09.jpg')"></span><span class="cell red"></span></div><div class="col c3"><span class="cell blue"></span><span class="cell cream"></span><span class="cell ph" style="--pic:url('/images/hero/07.jpg')"></span><span class="cell yellow"></span><span class="cell ph" style="--pic:url('/images/hero/08.jpg')"></span></div>

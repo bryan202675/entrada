@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f5f4ef" />
     <title>@ViewData["Title"] · ENTRADA</title>
+    <link rel="icon" type="image/svg+xml" href="~/favicon.svg" asp-append-version="true" />
+    <link rel="icon" type="image/png" href="~/favicon.png" asp-append-version="true" />
+    <link rel="apple-touch-icon" href="~/apple-touch-icon.png" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body class="site-page">
@@ -22,7 +25,10 @@
                     <a asp-controller="Eventos" asp-action="Index">Programación</a>
                     @if (User.Identity?.IsAuthenticated == true)
                     {
-                        <a asp-controller="Cuenta" asp-action="MisEntradas">Mis entradas</a>
+                        @if (!User.IsInRole("Administrador"))
+                        {
+                            <a asp-controller="Cuenta" asp-action="MisEntradas">Mis entradas</a>
+                        }
                         @if (User.IsInRole("Administrador"))
                         {
                             <a asp-controller="Admin" asp-action="Index">Dashboard</a>
@@ -35,9 +41,13 @@
                         <details class="user-menu">
                             <summary><span class="avatar">@User.Identity.Name?.Substring(0, 1).ToUpperInvariant()</span><span>@User.Identity.Name</span><span aria-hidden="true">⌄</span></summary>
                             <div class="user-popover">
-                                <a asp-controller="Cuenta" asp-action="MisEntradas">Mis entradas</a>
+                                @if (!User.IsInRole("Administrador"))
+                                {
+                                    <a asp-controller="Cuenta" asp-action="MisEntradas">Mis entradas</a>
+                                }
                                 @if (User.IsInRole("Administrador"))
                                 {
+                                    <a asp-controller="Admin" asp-action="Index">Dashboard</a>
                                     <a asp-controller="Admin" asp-action="Acceso">Control de acceso</a>
                                 }
                                 <form asp-controller="Cuenta" asp-action="Salir" method="post"><button type="submit">Cerrar sesión</button></form>
@@ -68,7 +78,20 @@
         <div class="footer-inner container">
             <a class="brand brand-footer" asp-controller="Inicio" asp-action="Index"><strong>ENTRADA</strong></a>
             <p>Eventos culturales, reservas simples y acceso seguro.</p>
-            <nav aria-label="Navegación de pie de página"><a asp-controller="Eventos" asp-action="Index">Eventos</a>@if (User.Identity?.IsAuthenticated == true){<a asp-controller="Cuenta" asp-action="MisEntradas">Mis entradas</a>}</nav>
+            <nav aria-label="Navegación de pie de página">
+                <a asp-controller="Eventos" asp-action="Index">Programación</a>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    @if (!User.IsInRole("Administrador"))
+                    {
+                        <a asp-controller="Cuenta" asp-action="MisEntradas">Mis entradas</a>
+                    }
+                    @if (User.IsInRole("Administrador"))
+                    {
+                        <a asp-controller="Admin" asp-action="Index">Dashboard</a>
+                    }
+                }
+            </nav>
             <span>© @DateTime.Now.Year</span>
         </div>
     </footer>

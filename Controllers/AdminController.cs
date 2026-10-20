@@ -20,31 +20,63 @@ public sealed class AdminController : Controller
     public async Task<IActionResult> Index(int? editar, CancellationToken cancellationToken)
     {
         var resumen = await _repository.ObtenerDashboardAsync(cancellationToken);
+        var boletosDetalle = await _repository.ObtenerBoletosDetalleAdminAsync(cancellationToken);
         var formulario = editar.HasValue
             ? CrearFormulario(resumen.EventosActivos.SingleOrDefault(x => x.Id == editar.Value))
             : new EventoInput { Fecha = DateTime.Now.AddDays(30) };
-        return View(new AdminDashboardViewModel { Resumen = resumen, Formulario = formulario });
+        return View(new AdminDashboardViewModel { Resumen = resumen, Formulario = formulario, BoletosDetalle = boletosDetalle });
     }
 
     [HttpPost("eventos/guardar")]
     public async Task<IActionResult> GuardarEvento(EventoInput input, CancellationToken cancellationToken)
     {
-        if (input.Fecha <= DateTime.Now)
+        var imagenFinal = string.IsNullOrWhiteSpace(input.Imagen) ? "/images/evento-arte.jpg" : input.Imagen;
+        if (input.ArchivoImagen != null && input.ArchivoImagen.Length > 0)
+        {
+            var extension = Path.GetExtension(input.ArchivoImagen.FileName).ToLowerInvariant();
+            var extensionesPermitidas = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+            if (!extensionesPermitidas.Contains(extension))
+            {
+                ModelState.AddModelError(nameof(input.ArchivoImagen), "Formato de archivo no válido. Usa JPG, PNG o WebP.");
+            }
+            else if (input.ArchivoImagen.Length > 10 * 1024 * 1024)
+            {
+                ModelState.AddModelError(nameof(input.ArchivoImagen), "La imagen no debe superar los 10 MB.");
+            }
+            else
+            {
+                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "uploads");
+                Directory.CreateDirectory(uploadsFolder);
+                var fileName = $"evento-{Guid.NewGuid():N}{extension}";
+                var filePath = Path.Combine(uploadsFolder, fileName);
+                await using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await input.ArchivoImagen.CopyToAsync(stream, cancellationToken);
+                }
+                imagenFinal = $"/images/uploads/{fileName}";
+            }
+        }
+
+        var inputActualizado = input with { Imagen = imagenFinal };
+
+        if (inputActualizado.Fecha <= DateTime.Now)
         {
             ModelState.AddModelError(nameof(input.Fecha), "La fecha debe ser futura.");
         }
         if (!ModelState.IsValid)
         {
             var resumen = await _repository.ObtenerDashboardAsync(cancellationToken);
-            return View("Index", new AdminDashboardViewModel { Resumen = resumen, Formulario = input });
+            var boletosDetalle = await _repository.ObtenerBoletosDetalleAdminAsync(cancellationToken);
+            return View("Index", new AdminDashboardViewModel { Resumen = resumen, Formulario = inputActualizado, BoletosDetalle = boletosDetalle });
         }
 
-        var resultado = await _repository.GuardarEventoAsync(input, cancellationToken);
+        var resultado = await _repository.GuardarEventoAsync(inputActualizado, cancellationToken);
         if (!resultado.Exitoso)
         {
             ModelState.AddModelError(string.Empty, resultado.Mensaje);
             var resumen = await _repository.ObtenerDashboardAsync(cancellationToken);
-            return View("Index", new AdminDashboardViewModel { Resumen = resumen, Formulario = input });
+            var boletosDetalle = await _repository.ObtenerBoletosDetalleAdminAsync(cancellationToken);
+            return View("Index", new AdminDashboardViewModel { Resumen = resumen, Formulario = inputActualizado, BoletosDetalle = boletosDetalle });
         }
         TempData["Mensaje"] = resultado.Mensaje;
         return RedirectToAction(nameof(Index));

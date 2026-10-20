@@ -42,6 +42,10 @@ public sealed class EventosController : Controller
     [HttpGet("{id:int}/reservar")]
     public async Task<IActionResult> Reserva(int id, CancellationToken cancellationToken)
     {
+        if (User.IsInRole("Administrador"))
+        {
+            return RedirectToAction("Index", "Admin", new { editar = id });
+        }
         var evento = await _repository.ObtenerEventoAsync(id, false, cancellationToken);
         if (evento is null)
         {
@@ -54,6 +58,10 @@ public sealed class EventosController : Controller
     [HttpPost("reservar")]
     public async Task<IActionResult> ConfirmarReserva(ReservaInput input, CancellationToken cancellationToken)
     {
+        if (User.IsInRole("Administrador"))
+        {
+            return RedirectToAction("Index", "Admin");
+        }
         var maximo = MaximoPorReserva();
         if (input.Cantidad > maximo)
         {

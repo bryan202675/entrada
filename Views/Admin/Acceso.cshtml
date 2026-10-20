@@ -3,15 +3,15 @@
     ViewData["Title"] = "Control de acceso";
 }
 <section class="access-page container">
-    <div class="access-heading"><div><a class="breadcrumb-link" asp-action="Index">← Panel operativo</a><span class="eyebrow">Control de acceso</span><h1>Validar entrada</h1><p>Comprueba un código y registra el ingreso en una sola operación.</p></div><span class="live-status"><i></i>Puesto activo</span></div>
+    <div class="access-heading"><div><a class="breadcrumb-link" asp-action="Index">← Panel operativo</a><h1>Validar entrada</h1><p>Comprueba un código y registra el ingreso en una sola operación.</p></div><span class="live-status"><i></i>Puesto activo</span></div>
     <div class="access-layout">
         <form method="post" class="access-form panel-surface">
             <div class="panel-heading"><span>Nueva validación</span><h2>Datos del boleto</h2><p>Elige la función antes de comprobar el código.</p></div>
             <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
             <label class="field"><span>Evento</span><select asp-for="Formulario.EventoId" name="EventoId"><option value="">Selecciona un evento</option>@foreach (var evento in Model.Eventos){<option value="@evento.Id">@evento.Titulo</option>}</select></label>
-            <label class="field code-field"><span>Código único</span><input asp-for="Formulario.Codigo" name="Codigo" autocomplete="off" autocapitalize="characters" placeholder="ENT-000001" /></label>
+            <label class="field code-field"><span>Código de boleto o reserva</span><input asp-for="Formulario.Codigo" name="Codigo" autocomplete="off" autocapitalize="characters" placeholder="ENT-000001 o RES-000001" /></label>
             <button class="button button-block" type="submit" data-loading-button><span>Validar ingreso</span></button>
-            <p class="secure-note">Cada código solo puede utilizarse una vez.</p>
+            <p class="secure-note">Puedes ingresar el código individual (ENT-...) o el código de reserva (RES-...).</p>
         </form>
         <div class="access-feedback panel-surface">
             @if (Model.Resultado is null)

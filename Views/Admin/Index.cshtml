@@ -39,18 +39,195 @@
             }
         </section>
         <aside class="event-editor panel-surface" id="editor">
-            <form asp-action="GuardarEvento" method="post">
+            <form asp-action="GuardarEvento" method="post" enctype="multipart/form-data">
                 <input asp-for="Formulario.Id" name="Id" type="hidden" />
                 <div class="panel-heading"><span>@(Model.Editando ? "Editando evento" : "Nuevo evento")</span><h2>@(Model.Editando ? "Actualizar función" : "Publicar función")</h2><p>Información visible para los asistentes.</p></div>
                 <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
                 <label class="field"><span>Título</span><input asp-for="Formulario.Titulo" name="Titulo" placeholder="Nombre del evento" /></label>
                 <label class="field"><span>Descripción</span><textarea asp-for="Formulario.Descripcion" name="Descripcion" rows="3" placeholder="Qué vivirá el público"></textarea></label>
                 <div class="field-pair"><label class="field"><span>Fecha y hora</span><input asp-for="Formulario.Fecha" name="Fecha" type="datetime-local" value="@Model.Formulario.Fecha.ToString("yyyy-MM-ddTHH:mm")" /></label><label class="field"><span>Ubicación</span><input asp-for="Formulario.Ubicacion" name="Ubicacion" placeholder="Sala o recinto" /></label></div>
-                <label class="field"><span>Imagen</span><select asp-for="Formulario.Imagen" name="Imagen"><option value="/images/evento-arte.jpg">Arte contemporáneo</option><option value="/images/evento-teatro.jpg">Teatro</option><option value="/images/evento-musica.jpg">Música en vivo</option><option value="/images/evento-fallback.jpg">Auditorio</option></select></label>
+                
+                <!-- Subida de imagen personalizada y selección prediseñada -->
+                <div class="field image-upload-field">
+                    <span>Imagen de portada</span>
+                    <div class="image-upload-box">
+                        <label class="image-dropzone" for="archivo-imagen">
+                            <input type="file" id="archivo-imagen" name="ArchivoImagen" accept="image/png,image/jpeg,image/webp,image/jpg" style="display:none;" />
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span class="upload-title" id="upload-label-text">Subir imagen personalizada</span>
+                            <small>JPG, PNG o WebP (máx. 10 MB)</small>
+                        </label>
+                        <div class="image-preview-thumb">
+                            <img id="image-preview" src="@(string.IsNullOrWhiteSpace(Model.Formulario.Imagen) ? "/images/evento-arte.jpg" : Model.Formulario.Imagen)" alt="Vista previa" />
+                            <span class="preview-badge">Vista previa</span>
+                        </div>
+                    </div>
+                </div>
+
+                <label class="field">
+                    <span>O seleccionar imagen predefinida</span>
+                    <select asp-for="Formulario.Imagen" name="Imagen" id="select-imagen">
+                        <option value="/images/evento-arte.jpg">Arte contemporáneo</option>
+                        <option value="/images/evento-teatro.jpg">Teatro</option>
+                        <option value="/images/evento-musica.jpg">Música en vivo</option>
+                        <option value="/images/evento-fallback.jpg">Auditorio</option>
+                    </select>
+                </label>
+
                 <fieldset class="category-editor"><legend>Precios y cupos</legend><div class="category-head"><span>Categoría</span><span>Precio</span><span>Cupo</span></div><div><strong>General</strong><input asp-for="Formulario.PrecioGeneral" name="PrecioGeneral" type="number" min="0" step="0.01" aria-label="Precio General" /><input asp-for="Formulario.CapacidadGeneral" name="CapacidadGeneral" type="number" min="1" aria-label="Cupo General" /></div><div><strong>VIP</strong><input asp-for="Formulario.PrecioVip" name="PrecioVip" type="number" min="0" step="0.01" aria-label="Precio VIP" /><input asp-for="Formulario.CapacidadVip" name="CapacidadVip" type="number" min="1" aria-label="Cupo VIP" /></div><div><strong>Estudiante</strong><input asp-for="Formulario.PrecioEstudiante" name="PrecioEstudiante" type="number" min="0" step="0.01" aria-label="Precio Estudiante" /><input asp-for="Formulario.CapacidadEstudiante" name="CapacidadEstudiante" type="number" min="1" aria-label="Cupo Estudiante" /></div></fieldset>
                 <button class="button button-block" type="submit" data-loading-button><span>@(Model.Editando ? "Guardar cambios" : "Crear evento")</span></button>
                 @if (Model.Editando){<a class="button-link centered" asp-action="Index">Cancelar edición</a>}
             </form>
         </aside>
     </div>
+
+    <!-- SECCIÓN: ENTRADAS ELEGIDAS POR ASISTENTE -->
+    <section class="admin-tickets-section panel-surface" id="asistentes-entradas">
+        <div class="subheading-tickets">
+            <div>
+                <span class="eyebrow">Auditoría y Gestión de Asistentes</span>
+                <h2>Entradas Elegidas por Asistente</h2>
+                <p>Listado de cada boleto emitido, usuario que lo seleccionó, recinto y código de acceso digital.</p>
+            </div>
+            <div class="tickets-summary-pills">
+                <span class="summary-pill"><strong>@Model.BoletosDetalle.Count</strong> boletos emitidos</span>
+                <span class="summary-pill vip"><strong>@Model.BoletosDetalle.Count(b => b.TipoEntrada == "VIP")</strong> VIP</span>
+                <span class="summary-pill general"><strong>@Model.BoletosDetalle.Count(b => b.TipoEntrada == "General")</strong> General</span>
+                <span class="summary-pill estudiante"><strong>@Model.BoletosDetalle.Count(b => b.TipoEntrada == "Estudiante")</strong> Estudiante</span>
+            </div>
+        </div>
+
+        <!-- Buscador y filtro rápido de boletos/usuarios -->
+        <div class="tickets-filter-bar">
+            <label class="tickets-search" for="buscar-asistente">
+                <span aria-hidden="true">⌕</span>
+                <input type="search" id="buscar-asistente" placeholder="Buscar por asistente, correo, evento o código de boleto..." autocomplete="off" />
+            </label>
+            <span class="filter-count" id="tickets-filter-count">@Model.BoletosDetalle.Count registros</span>
+        </div>
+
+        @if (Model.BoletosDetalle.Count == 0)
+        {
+            <div class="inline-empty" style="padding: 36px 20px; text-align: center;">
+                Aún no se han reservado boletos en el sistema.
+            </div>
+        }
+        else
+        {
+            <div class="data-table-wrap">
+                <table class="data-table" id="tabla-boletos-admin">
+                    <thead>
+                        <tr>
+                            <th>Boleto / Código</th>
+                            <th>Categoría</th>
+                            <th>Asistente (Usuario)</th>
+                            <th>Evento</th>
+                            <th>Fecha de Función</th>
+                            <th>Fecha de Reserva</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var boleto in Model.BoletosDetalle)
+                        {
+                            var fechaEventoLocal = DateTime.SpecifyKind(boleto.FechaEvento, DateTimeKind.Utc).ToLocalTime();
+                            var fechaReservaLocal = DateTime.SpecifyKind(boleto.FechaReserva, DateTimeKind.Utc).ToLocalTime();
+                            <tr data-ticket-row data-filter="@($"{boleto.CodigoBoleto} {boleto.UsuarioNombre} {boleto.UsuarioEmail} {boleto.EventoTitulo} {boleto.TipoEntrada} {boleto.IdentificadorReserva}")">
+                                <td>
+                                    <div class="ticket-code-cell">
+                                        <strong>@boleto.CodigoBoleto</strong>
+                                        <small>@boleto.IdentificadorReserva</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="pass-tier tier-@boleto.TipoEntrada.ToLowerInvariant()">@boleto.TipoEntrada</span>
+                                    <div class="tier-price">@boleto.Precio.ToString("C")</div>
+                                </td>
+                                <td>
+                                    <div class="user-cell">
+                                        <strong>@boleto.UsuarioNombre</strong>
+                                        <small>@boleto.UsuarioEmail</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <strong class="event-title-cell">@boleto.EventoTitulo</strong>
+                                </td>
+                                <td>
+                                    <div class="date-cell">
+                                        <span>@fechaEventoLocal.ToString("dd MMM yyyy")</span>
+                                        <small>@fechaEventoLocal.ToString("h:mm tt")</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="date-cell">
+                                        <span>@fechaReservaLocal.ToString("dd MMM yyyy")</span>
+                                        <small>@fechaReservaLocal.ToString("h:mm tt")</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="status status-@boleto.EstadoBoleto.ToLowerInvariant()">@boleto.EstadoBoleto</span>
+                                    @if (boleto.FechaUso.HasValue)
+                                    {
+                                        <small style="display:block; font-size:9px; color:var(--muted); margin-top:2px;">Uso: @DateTime.SpecifyKind(boleto.FechaUso.Value, DateTimeKind.Utc).ToLocalTime().ToString("dd/MM HH:mm")</small>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
 </section>
+
+@section Scripts {
+<script>
+(() => {
+    // Vista previa de imagen en formulario
+    const fileInput = document.getElementById('archivo-imagen');
+    const selectImagen = document.getElementById('select-imagen');
+    const imagePreview = document.getElementById('image-preview');
+    const uploadLabelText = document.getElementById('upload-label-text');
+
+    if (fileInput && imagePreview) {
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                imagePreview.src = url;
+                if (uploadLabelText) uploadLabelText.textContent = file.name;
+            }
+        });
+    }
+
+    if (selectImagen && imagePreview) {
+        selectImagen.addEventListener('change', (e) => {
+            if (!fileInput?.files?.length) {
+                imagePreview.src = e.target.value;
+            }
+        });
+    }
+
+    // Filtro en tiempo real para la tabla de asistentes y boletos
+    const searchInput = document.getElementById('buscar-asistente');
+    const rows = document.querySelectorAll('[data-ticket-row]');
+    const countEl = document.getElementById('tickets-filter-count');
+
+    if (searchInput && rows.length > 0) {
+        searchInput.addEventListener('input', () => {
+            const term = searchInput.value.trim().toLowerCase();
+            let visible = 0;
+            rows.forEach(row => {
+                const content = (row.getAttribute('data-filter') || '').toLowerCase();
+                const matches = !term || content.includes(term);
+                row.style.display = matches ? '' : 'none';
+                if (matches) visible++;
+            });
+            if (countEl) {
+                countEl.textContent = `${visible} ${visible === 1 ? 'registro' : 'registros'}`;
+            }
+        });
+    }
+})();
+</script>
+}

@@ -141,6 +141,100 @@ BEGIN
 END
 GO
 
+-- Eventos de Octubre, Noviembre y Diciembre
+DECLARE @EvId INT;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Eventos WHERE Titulo = N'Gala de Danza Contemporánea: Raíces en Vuelo')
+BEGIN
+    INSERT INTO dbo.Eventos (Titulo, Descripcion, Fecha, Ubicacion, Imagen, Estado)
+    VALUES (N'Gala de Danza Contemporánea: Raíces en Vuelo', N'Una experiencia coreográfica que fusiona tradiciones ancestrales con el lenguaje de la danza contemporánea latinoamericana.', '2026-10-24 02:00:00', N'Teatro Nacional · Gran Sala', N'/images/evento-teatro.jpg', N'Activo');
+    SET @EvId = SCOPE_IDENTITY();
+    INSERT INTO dbo.TiposEntrada (EventoId, Nombre, Precio, CapacidadTotal, nStockDisponible)
+    VALUES (@EvId, N'General', 10.00, 180, 180), (@EvId, N'VIP', 22.00, 40, 40), (@EvId, N'Estudiante', 6.00, 100, 100);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Eventos WHERE Titulo = N'Encuentro Acústico: Cuerdas de Otoño')
+BEGIN
+    INSERT INTO dbo.Eventos (Titulo, Descripcion, Fecha, Ubicacion, Imagen, Estado)
+    VALUES (N'Encuentro Acústico: Cuerdas de Otoño', N'Recital íntimo de guitarras clásicas y cellos al aire libre en los jardines del museo, explorando compositores iberoamericanos.', '2026-10-26 00:30:00', N'Museo de Arte · Patio de Esculturas', N'/images/evento-musica.jpg', N'Activo');
+    SET @EvId = SCOPE_IDENTITY();
+    INSERT INTO dbo.TiposEntrada (EventoId, Nombre, Precio, CapacidadTotal, nStockDisponible)
+    VALUES (@EvId, N'General', 12.00, 150, 150), (@EvId, N'VIP', 25.00, 35, 35), (@EvId, N'Estudiante', 7.00, 80, 80);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Eventos WHERE Titulo = N'Noche de Murales y Arte Urbano: Grafos 2026')
+BEGIN
+    INSERT INTO dbo.Eventos (Titulo, Descripcion, Fecha, Ubicacion, Imagen, Estado)
+    VALUES (N'Noche de Murales y Arte Urbano: Grafos 2026', N'Intervenciones plásticas en vivo, serigrafía participativa y mapping lumínico en los muros históricos del centro cultural.', '2026-10-30 01:30:00', N'Centro Cultural · Galería Abierta', N'/images/evento-arte.jpg', N'Activo');
+    SET @EvId = SCOPE_IDENTITY();
+    INSERT INTO dbo.TiposEntrada (EventoId, Nombre, Precio, CapacidadTotal, nStockDisponible)
+    VALUES (@EvId, N'General', 8.00, 200, 200), (@EvId, N'VIP', 16.00, 50, 50), (@EvId, N'Estudiante', 4.50, 120, 120);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Eventos WHERE Titulo = N'Ópera de Cámara: Voces en el Crepúsculo')
+BEGIN
+    INSERT INTO dbo.Eventos (Titulo, Descripcion, Fecha, Ubicacion, Imagen, Estado)
+    VALUES (N'Ópera de Cámara: Voces en el Crepúsculo', N'Ensamble vocal y orquesta de cámara interpretan arias selectas y relatos líricos en una velada especial de vísperas.', '2026-11-01 02:00:00', N'Teatro Luis Poma · Sala Principal', N'/images/evento-teatro.jpg', N'Activo');
+    SET @EvId = SCOPE_IDENTITY();
+    INSERT INTO dbo.TiposEntrada (EventoId, Nombre, Precio, CapacidadTotal, nStockDisponible)
+    VALUES (@EvId, N'General', 15.00, 160, 160), (@EvId, N'VIP', 32.00, 45, 45), (@EvId, N'Estudiante', 9.00, 90, 90);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Eventos WHERE Titulo = N'Sinfonía Urbana: Orquesta Filarmónica Joven')
+BEGIN
+    INSERT INTO dbo.Eventos (Titulo, Descripcion, Fecha, Ubicacion, Imagen, Estado)
+    VALUES (N'Sinfonía Urbana: Orquesta Filarmónica Joven', N'Más de setenta músicos juveniles interpretan obras de Dvořák y arreglos sinfónicos de música contemporánea centroamericana.', '2026-11-07 02:00:00', N'Auditorio Central · Foro Mayor', N'/images/evento-musica.jpg', N'Activo');
+    SET @EvId = SCOPE_IDENTITY();
+    INSERT INTO dbo.TiposEntrada (EventoId, Nombre, Precio, CapacidadTotal, nStockDisponible)
+    VALUES (@EvId, N'General', 14.00, 280, 280), (@EvId, N'VIP', 30.00, 60, 60), (@EvId, N'Estudiante', 8.00, 150, 150);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Eventos WHERE Titulo = N'Muestra Internacional de Cine y Nuevos Medios')
+BEGIN
+    INSERT INTO dbo.Eventos (Titulo, Descripcion, Fecha, Ubicacion, Imagen, Estado)
+    VALUES (N'Muestra Internacional de Cine y Nuevos Medios', N'Proyección de cortometrajes premiados, paneles con directores invitados y conversatorios sobre lenguaje audiovisual emergente.', '2026-11-20 01:00:00', N'Cinemateca Universitaria · Sala 1', N'/images/evento-arte.jpg', N'Activo');
+    SET @EvId = SCOPE_IDENTITY();
+    INSERT INTO dbo.TiposEntrada (EventoId, Nombre, Precio, CapacidadTotal, nStockDisponible)
+    VALUES (@EvId, N'General', 6.00, 140, 140), (@EvId, N'VIP', 12.00, 30, 30), (@EvId, N'Estudiante', 3.50, 100, 100);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Eventos WHERE Titulo = N'Festival de Jazz & Fusión: Síncopa Libre')
+BEGIN
+    INSERT INTO dbo.Eventos (Titulo, Descripcion, Fecha, Ubicacion, Imagen, Estado)
+    VALUES (N'Festival de Jazz & Fusión: Síncopa Libre', N'Tríos y cuartetos destacados improvisan jazz modal, ritmos afrocaribeños y armonías modernas bajo las estrellas.', '2026-11-28 02:30:00', N'Plaza de las Artes · Anfiteatro', N'/images/evento-musica.jpg', N'Activo');
+    SET @EvId = SCOPE_IDENTITY();
+    INSERT INTO dbo.TiposEntrada (EventoId, Nombre, Precio, CapacidadTotal, nStockDisponible)
+    VALUES (@EvId, N'General', 16.00, 220, 220), (@EvId, N'VIP', 35.00, 50, 50), (@EvId, N'Estudiante', 10.00, 110, 110);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Eventos WHERE Titulo = N'El Cascanueces: Temporada Navideña')
+BEGIN
+    INSERT INTO dbo.Eventos (Titulo, Descripcion, Fecha, Ubicacion, Imagen, Estado)
+    VALUES (N'El Cascanueces: Temporada Navideña', N'El clásico ballet navideño de Tchaikovsky interpretado con escenografía monumental, vestuario artesanal y orquesta en vivo.', '2026-12-06 01:00:00', N'Teatro Presidente · Sala Principal', N'/images/evento-teatro.jpg', N'Activo');
+    SET @EvId = SCOPE_IDENTITY();
+    INSERT INTO dbo.TiposEntrada (EventoId, Nombre, Precio, CapacidadTotal, nStockDisponible)
+    VALUES (@EvId, N'General', 18.00, 300, 300), (@EvId, N'VIP', 42.00, 80, 80), (@EvId, N'Estudiante', 10.00, 160, 160);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Eventos WHERE Titulo = N'Feria de Diseño y Creación Contemporánea')
+BEGIN
+    INSERT INTO dbo.Eventos (Titulo, Descripcion, Fecha, Ubicacion, Imagen, Estado)
+    VALUES (N'Feria de Diseño y Creación Contemporánea', N'Más de cincuenta talleres editoriales, ilustradores, ceramistas y diseñadores de producto en una feria abierta de fin de año.', '2026-12-12 16:00:00', N'Centro Cultural · Nave Central', N'/images/evento-arte.jpg', N'Activo');
+    SET @EvId = SCOPE_IDENTITY();
+    INSERT INTO dbo.TiposEntrada (EventoId, Nombre, Precio, CapacidadTotal, nStockDisponible)
+    VALUES (@EvId, N'General', 5.00, 350, 350), (@EvId, N'VIP', 12.00, 50, 50), (@EvId, N'Estudiante', 3.00, 200, 200);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Eventos WHERE Titulo = N'Gran Gala Coral y Música Sacra de Fin de Año')
+BEGIN
+    INSERT INTO dbo.Eventos (Titulo, Descripcion, Fecha, Ubicacion, Imagen, Estado)
+    VALUES (N'Gran Gala Coral y Música Sacra de Fin de Año', N'Ciento veinte voces polifónicas y conjunto de metales en un repertorio sublime de música renacentista y villancicos del mundo.', '2026-12-23 02:00:00', N'Catedral Histórica · Nave Mayor', N'/images/evento-musica.jpg', N'Activo');
+    SET @EvId = SCOPE_IDENTITY();
+    INSERT INTO dbo.TiposEntrada (EventoId, Nombre, Precio, CapacidadTotal, nStockDisponible)
+    VALUES (@EvId, N'General', 12.00, 250, 250), (@EvId, N'VIP', 28.00, 60, 60), (@EvId, N'Estudiante', 7.00, 120, 120);
+END;
+GO
+
 UPDATE dbo.Eventos
 SET Imagen = CASE Imagen
     WHEN N'/images/evento-teatro.svg' THEN N'/images/evento-teatro.jpg'
